@@ -1,28 +1,41 @@
 # impact
 
+## This tool is dangerous - misuse can lead to irreversible consequences for your data/systems.  Use responsibly.
+
+### This tool is designed to help blue-teams and sysadmins test their defenses against ransomware in a controlled environment and provide a means to easily reverse any impact with built-in decryption capabilities.
 
 impact is an adversary ransomware simulator designed to replicate certain functionality often observed in groups such as BlackBasta, RansomHub, etc.
 
+If you want to truly test your ransomware detection and prevention capabilities, impact will give you the capability to do using real-world observations.
+
 Specifically it implements the following features:
-* Multi-threaded data encryption with file/directory exclusions based on real samples
-* Intermittent encryption using AES or XChaCha20
-    * Read 256 bytes, encrypt 64, etc - causes a file to become unusable without having to encrypt 100% of the contents
-* Unique symmetric keys per file encrypted with RSA Public Key
-    * Threat Actors would normally embed public key into binary - this program allows cmdline input for RSA file or generates on-the-fly
-    * Private key is also generated to allow this program to decrypt
-* Encrypted file extensions based on real-world examples
-* Ransomware Note Content/Names based on group behaviors
-* Optional capability to force-stop configured processes
+* Multi-threaded data encryption with file/directory exclusions/inclusions based on real-world observations
+* Intermittent percent-based encryption using AES or XChaCha20 with configurable parameters
+* Unique symmetric keys per file to avoid ciphertext-analysis style attacks
+* Encrypted file extensions based on real-world group observations
+* Ransomware Note Content/Names based on real-world group observations
+* Optional capability to force-kill commonly targeted processes
 * Optional capability to remove existing VSS Copies
 * Capability to create 'dummy' data sets of specified size/file count for targeting rather than using pre-existing data
-* Capability to adjust number of worker threads
+* Capability to adjust number of encryption/decryption routines (concurrency)
 
-Just a note that this does not perfectly emulate individual groups - for example, RansomHub is known to use ECC for protecting symmetric keys appended to data - for the sake of simplicity this only implements RSA but it wouldn't be hard to change this to ECC.
+Just a note that this does not perfectly emulate all the TTPs/Behaviors of any given group - but it is good enough as a 
+simulation in my experience.
 
-Every time that an encryption command is executed, a corresponding decryption command will be created in local file 'decryption_command.txt' - this command will provide instructions on how to reverse the encryption by specifying the appropriate cipher and RSA private key file.
+Most encryption schemes for ransomware involve the generation of a unique symmetric key on a per-file basis - after 
+the file is encrypted, an embedded public key is then used to encrypt the symmetric key (along with other data 
+sometimes such as percent encrypted, original file-size, etc) and this additional encrypted data is appended to the end of each file.
 
+The exact data varies per group - impact uses a generic implementation across all groups - the main differentiators between groups in the impact implementation are as follows:
+* Ransomware Extension
+* Ransomware Note Name
+* Ransomware Note Content
+* Symmetric Cipher
+* Asymmetric Cipher
 
-### This tool is dangerous - I am not responsible if you completely brick, destroy, decimate, mangle or otherwise harm your data, devices or network in any way, shape or form.  You have been warned.
+Thus, the implementation remains the same between groups in this tool and it is mainly the metadata that presents a difference.
+
+Every time that an encryption command is executed, a corresponding decryption command will be created in local file 'decryption_command.txt' - this command will provide instructions on how to reverse the encryption by specifying the appropriate reversed command-line arguments.
 
 ### Command Examples
 ```shell
