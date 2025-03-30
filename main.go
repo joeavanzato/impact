@@ -1,5 +1,14 @@
 package main
 
+// TODO - File Name Exclusions
+// TODO - File Extension Inclusions
+// TODO - File Extension Exclusions
+// TODO - Process Terminations
+// TODO - VSS Removals
+// TODO - Directory Exclusions
+// TODO - Configurable Encryption Percentage
+// TODO - Configurable Full Encrypt Threshold
+
 import (
 	r "crypto/rand"
 	"embed"
