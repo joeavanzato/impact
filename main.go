@@ -31,38 +31,11 @@ import (
 //encrypted:embed config.yaml
 var configFile encryptedfs.FS
 
-/*
-//go:generate go run github.com/c-sto/encembed -i config.yaml -decvarname configFile
-*/
-
-type Config struct {
-	Groups                  []RansomActor `yaml:"groups"`
-	DirectoryExclusions     []string      `yaml:"directory_skips"`
-	FileExtensionExclusions []string      `yaml:"file_extension_skips"`
-	FileNameExclusions      []string      `yaml:"file_name_skips"`
-	ProcessKillNames        []string      `yaml:"process_kill_names"`
-}
-
-type RansomActor struct {
-	Group           string   `yaml:"group"`
-	ExtensionMethod string   `yaml:"extension_method"`
-	Extensions      []string `yaml:"extensions"`
-	Notes           []string `yaml:"notes"`
-	Note            string   `yaml:"note"`
-	Cipher          string   `yaml:"cipher"`
-}
-
-type LogLevel string
-
-const (
-	INFO  LogLevel = "INFO"
-	ERROR LogLevel = "ERROR"
-)
-
-type File struct {
-	Path string // full path
-	Size int64  // bytes
-}
+// Keys will be stored by default in embedded file system
+// embed *.pub
+var publicKeys embed.FS
+var eccKeyName = "ecc_key.ecc.pub"
+var rsaKeyName = "rsa_key.rsa.pub"
 
 var dummy_extensions = []string{"docx", "docm", "xlsm", "xlsx", "qbw", "rar", "csv", "sln", "bin", "zip", "pdf", "txt"}
 var subdir_names = []string{"finance", "reports", "documents", "it", "exhibits", "backup"}
