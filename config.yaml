@@ -260,7 +260,7 @@ file_extension_targets: # Will only target files with these extensions
   - .zip
 groups: # When using a named group, will randomly select an extension and note name to apply - can use %R to generate random alpha-numeric character in extension and note contents
   - group: BlackBasta
-    extension_method: append
+    extension_method: mutate
     extensions:
       - basta
       - '%R%R%R%R%R%R%R%R%R'
