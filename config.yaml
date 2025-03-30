@@ -1,6 +1,5 @@
 # go run github.com/abakum/embed-encrypt - When config updates, use this to regenerate necessary data.
-full_encryption_max_bytes: 1024 # If a file size in bytes is < this number, will always encrypt entire file
-file_name_skips: # No matter what, will skip files containing these strings in the name
+file_name_skips: # No matter what, will skip files containing these strings in the name - uses regex so be cautious of special characters
   - readme
   - bootmgr
   - OUT
@@ -12,17 +11,17 @@ file_extension_skips: # No matter what, will skip files with these extensions
   - .sys
   - .msi
   - .bat
-directory_skips: # No matter what, will skip directories containing these strings in the name
-  - Windows
-  - Tor browser
-  - $Recycle.Bin
+directory_skips: # No matter what, will skip directories containing these strings in the name - use lower-case, does not use regex
+  - windows
+  - tor browser
+  - $recycle.bin
   - $windows.~ws
   - $windows.~bt
-  - Mozilla
-  - Google
-  - Application Data
+  - mozilla
+  - google
+  - application data
   - boot
-  - Local Settings
+  - local settings
 process_kill_names: # If -kill flag, will attempt to stop these processes (if running) on target machine
   - "vmms.exe"
   - "msaccess.exe"
