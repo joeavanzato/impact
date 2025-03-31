@@ -4,6 +4,9 @@ package main
 // TODO - VSS Removals
 // TODO - EDS Validation Mechanism
 // TODO - Revisit ECC Encryption Implementation as it's actually using AES right now and ECC keys are basically an input to this
+// TODO - Revisit file walking to completely skip dir exclusions - right now it will still grab subdirs even if parent is skipped
+// TODO - Desktop Background Optional Capability
+// TODO - Icon Association Optional Capability
 
 import (
 	"embed"
