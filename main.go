@@ -7,6 +7,7 @@ package main
 // TODO - Revisit file walking to completely skip dir exclusions - right now it will still grab subdirs even if parent is skipped
 // TODO - Desktop Background Optional Capability
 // TODO - Icon Association Optional Capability
+// TODO - Remote Hostname Parsing
 
 import (
 	"embed"
@@ -275,6 +276,7 @@ func main() {
 			printFormattedMessage(fmt.Sprintf("Process Kill Error: %s", err.Error()), ERROR)
 		}
 	}
+	return
 
 	// Need to create files now if performing
 	fileList := make([]string, 0)
