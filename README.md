@@ -8,7 +8,7 @@ impact is an adversary ransomware simulator designed to replicate certain functi
 
 If you want to truly test your ransomware detection and prevention capabilities, impact will give you the capability to do using real-world observations.
 
-Specifically it implements the following features:
+Features:
 * Multi-threaded data encryption with file/directory exclusions/inclusions based on real-world observations
 * Intermittent percent-based encryption using AES or XChaCha20 with configurable parameters
 * Unique symmetric keys per file to avoid known-plaintext analysis attacks
@@ -32,8 +32,8 @@ The exact data varies per group - impact uses a generic implementation across al
 * Ransomware Extension
 * Ransomware Note Name
 * Ransomware Note Content
-* Symmetric Cipher
-* Asymmetric Cipher
+* Symmetric Cipher Utilized
+* Asymmetric Cipher Utilized
 
 Thus, the implementation remains the same between groups in this tool and it is mainly the metadata that presents a difference.
 
@@ -51,6 +51,12 @@ In general, the logic flow is as below:
    9. Following this, we also embed two more data structures representing the length of our encrypted metadata and an encryption signature
 10. After completing all file writes, we then either append our extension or mutate the existing extension depending on methodology of the group
 
+### Groups Currently Implemented
+* BlackBasta
+* RansomHub
+* Play
+* Royal
+
 
 ### Command Examples
 ```shell
@@ -61,8 +67,22 @@ impact -directory \\localhost\C$\test -group blackbasta -recursive -create -crea
 impact -directory \\localhost\C$\test -group ransomhub -recursive
 # Encrypt the target directory recursively using notes, note-names, file extensions and symmetric encryption synonymous with the RansomHub group
 
+impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20
+# Same as above, but force the use of a specific cipher (defaults to group configuration)
 
+impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20 -rsa_public "rsa_public.key"
+# Same as above, but force the use of a specific public key for encryption (defaults to internally embedded key)
+
+impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20 -rsa_public "rsa_public.key" -workers 100
+# Same as above, but increase concurrency (default 25 threads)
+
+impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20 -rsa_public "rsa_public.key" -workers 100 -ep 75
+# Same as above, but increase how much the percentage of a file that gets encrypted (default 25%)
+
+impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20 -rsa_public "rsa_public.key" -workers 100 -ep 75 -threshold 2048
+# Same as above, but increase the size threshold for automatically encrypting 100% of a file (default 1048 bytes)
 ```
+
 
 ### Arguments
 ```
