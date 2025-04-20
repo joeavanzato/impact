@@ -36,7 +36,7 @@ func disableDefenderRegistry() {
 
 func runPowerShell(script string) error {
 	fmt.Println("Running PowerShell script:", script)
-	cmd := exec.Command("powershell", "-Command", "\"", script, "\"")
+	cmd := exec.Command("powershell", "-Command", script)
 	err := cmd.Run()
 	if err != nil {
 		return err
