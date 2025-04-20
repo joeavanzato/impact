@@ -134,7 +134,9 @@ func getPublicECCKeyFromFile(file string, embedded bool) (*ecc.Public, error) {
 	var err error
 	if embedded {
 		pubKeyData, err = publicKeys.ReadFile(file)
-		return nil, fmt.Errorf("Error reading embedded ECC Public Key: %s", err)
+		if err != nil {
+			return nil, fmt.Errorf("Error reading embedded ECC Public Key: %s", err)
+		}
 	} else {
 		pubKeyData, err = os.ReadFile(file)
 		if err != nil {
