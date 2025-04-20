@@ -171,7 +171,7 @@ func handlePortBlocking(decrypting bool, config *Config) {
 		}
 	}
 	if enabled && !decrypting {
-		// Add Rule
+		printFormattedMessage("Adding Windows Firewall rule to block specified ports", INFO)
 		cmd := exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name="+config.FWRuleName, "dir=out", "remoteport="+ports, "action=block", "interfacetype=any", "protocol=tcp")
 		err = cmd.Run()
 		if err != nil {
@@ -179,6 +179,7 @@ func handlePortBlocking(decrypting bool, config *Config) {
 		}
 	} else if enabled && decrypting {
 		// Remove Rule
+		printFormattedMessage("Removing Windows Firewall rule to block specified ports", INFO)
 		cmd := exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name="+config.FWRuleName)
 		err = cmd.Run()
 		if err != nil {
@@ -231,6 +232,7 @@ func handleDomainBlocking(decrypting bool, config *Config) {
 
 	if enabled && !decrypting {
 		// Add Rule
+		printFormattedMessage("Adding Windows Firewall rule to block specified domains", INFO)
 		cmd := exec.Command("netsh", "advfirewall", "firewall", "add", "rule", "name="+config.FWDomainRuleName, "dir=out", "remoteip="+ips, "action=block", "interfacetype=any")
 		fmt.Println(cmd)
 		err = cmd.Run()
@@ -239,6 +241,7 @@ func handleDomainBlocking(decrypting bool, config *Config) {
 		}
 	} else if enabled && decrypting {
 		// Remove Rule
+		printFormattedMessage("Removing Windows Firewall rule to block specified domains", INFO)
 		cmd := exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name="+config.FWDomainRuleName)
 		err = cmd.Run()
 		if err != nil {
