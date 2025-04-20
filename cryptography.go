@@ -336,11 +336,12 @@ func shouldProcessFile(f string, config *Config) bool {
 		return false
 	}
 
-	// Base Directory matches skip list
-	baseDirectory := filepath.Base(filepath.Dir(f))
-	if slices.Contains(config.DirectoryExclusions, baseDirectory) {
-		return false
-	}
+	// This is taken care of already in the crawler
+	/*	// Base Directory matches skip list
+		baseDirectory := filepath.Base(filepath.Dir(f))
+		if slices.Contains(config.DirectoryExclusions, baseDirectory) {
+			return false
+		}*/
 
 	// Extension Inclusions
 	if slices.Contains(config.FileExtensionInclusions, extension) {
