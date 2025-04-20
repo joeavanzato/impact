@@ -1,25 +1,27 @@
 # impact
 
-## This tool is dangerous - misuse can lead to irreversible consequences for your data/systems.  Use responsibly.
+### This tool is dangerous - misuse can lead to irreversible consequences for your data and systems.  Use responsibly.
 
-### This tool is designed to help blue-teams and sysadmins test their defenses against ransomware in a controlled environment and provide a means to easily reverse any impact with built-in decryption capabilities.
+### impact is designed to help blue-teams test their defenses against ransomware through a controlled mechanism as well as provide a means to reverse any impact with built-in decryption capabilities.
 
 impact is an adversary ransomware simulator designed to replicate certain functionality often observed in groups such as BlackBasta, RansomHub, etc.
 
-If you want to truly test your ransomware detection and prevention capabilities, impact will give you the capability to do using real-world observations.
+If you want to truly test your ransomware detection and prevention capabilities, impact will give you the capability to do so using real-world observations.
 
 Features:
 * Multi-threaded data encryption with file/directory exclusions/inclusions based on real-world observations
-* Intermittent percent-based encryption using AES or XChaCha20 with configurable parameters
+* Intermittent percent-based encryption using AES or XChaCha20 with configurable percentage
 * Unique symmetric keys per file to avoid known-plaintext analysis attacks
-* Encrypted file extensions based on real-world group observations
+* Ransomware file extensions and behaviors based on real-world group observations
 * Ransomware Note Content/Names based on real-world group observations
-* Optional capability to force-kill commonly targeted processes
-* Optional capability to remove existing VSS Copies
-* Ability to either append or mutate extensions for additional simulation effect
+* Capability to force-kill commonly targeted processes
+* Capability to remove existing VSS Copies
 * Capability to create 'dummy' data sets of specified size/file count for targeting rather than using pre-existing data
 * Capability to adjust number of encryption/decryption routines (concurrency)
 * Ability to execute ransomware 'inline' or 'outline' - meaning either writing over the same file or writing to a new file and deleting the original
+* Encrypted configuration data embedded into the executable
+* Ability to delay ransomware note creation to avoid static detection signatures
+* Can target specific directories or enumerate local/network drives to target
 
 Just a note that this does not perfectly emulate all the TTPs/Behaviors of any given group - but it is good enough as a 
 simulation in my experience.
@@ -29,11 +31,13 @@ the file is encrypted, an embedded public key is then used to encrypt the symmet
 sometimes such as percent encrypted, original file-size, etc) and this additional encrypted data is appended to the end of each file.
 
 The exact data varies per group - impact uses a generic implementation across all groups - the main differentiators between groups in the impact implementation are as follows:
-* Ransomware Extension
-* Ransomware Note Name
+* Ransomware Extension[s]
+* Extension Editing Differences - Mutate vs Append
+* Ransomware Note Name[s]
 * Ransomware Note Content
 * Symmetric Cipher Utilized
 * Asymmetric Cipher Utilized
+* Ransomware Note Behavior - Delayed or Immediate
 
 Thus, the implementation remains the same between groups in this tool and it is mainly the metadata that presents a difference.
 
@@ -129,3 +133,7 @@ impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchach
   -workers int
         How many goroutines to use for encryption (default 25)
 ```
+
+### Credits/Acknowledgements
+* github.com/mxk/go-vss
+  * LICENSE: MPL 2.0
