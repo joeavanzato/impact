@@ -25,6 +25,7 @@ type Config struct {
 	Domains                 []string `yaml:"domain_blocks"`
 	FWRuleName              string   `yaml:"fw_rule_name"`
 	FWDomainRuleName        string   `yaml:"fw_domain_rule_name"`
+	ServiceKillNames        []string `yaml:"service_kill_names"`
 }
 
 type RansomActor struct {
