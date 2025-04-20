@@ -1,4 +1,60 @@
 # go run github.com/abakum/embed-encrypt - When config updates, use this to regenerate necessary data.
+unique_file_mutex: ef01acyti34Mt5rxZlOPfRtQez.qbwcsv  # Created at the root level of a drive to prevent re-encryption
+fw_domain_rule_name: app_egress_dom_test # Name of the Windows Firewall rule to create if -blockhosts is passed
+domain_blocks: # Attempt to stop resolution of these hostnames through hosts.etc if -blockhosts is passed
+  - ts01-b.cloudsink.net # Start CrowdStrike
+  - lfodown01-b.cloudsink.net
+  - lfoup01-b.cloudsink.net
+  - falcon.crowdstrike.com
+  - assets.falcon.crowdstrike.com
+  - assets-public.falcon.crowdstrike.com
+  - api.crowdstrike.com
+  - firehose.crowdstrike.com
+  - ts01-gyr-maverick.cloudsink.net
+  - lfodown01-gyr-maverick.cloudsink.net
+  - lfoup01-gyr-maverick.cloudsink.net
+  - falcon.us-2.crowdstrike.com
+  - assets.falcon.us-2.crowdstrike.com
+  - assets-public.us-2.falcon.crowdstrike.com
+  - api.us-2.crowdstrike.com
+  - firehose.us-2.crowdstrike.com
+  - ts01-laggar-gcw.cloudsink.net
+  - sensorproxy-laggar-g-524628337.us-gov-west-1.elb.amazonaws.com
+  - lfodown01-laggar-gcw.cloudsink.net
+  - ELB-Laggar-P-LFO-DOWNLOAD-1265997121.us-gov-west-1.elb.amazonaws.com
+  - falcon.laggar.gcw.crowdstrike.com
+  - laggar-falconui01-g-245478519.us-gov-west-1.elb.amazonaws.com
+  - api.laggar.gcw.crowdstrike.com
+  - firehose.laggar.gcw.crowdstrike.com
+  - falconhose-laggar01-g-720386815.us-gov-west-1.elb.amazonaws.com
+  - ts01-us-gov-2.cloudsink.net
+  - lfodown01-us-gov-2.cloudsink.net
+  - api.us-gov-2.crowdstrike.com
+  - firehose.us-gov-2.crowdstrike.com
+  - ts01-lanner-lion.cloudsink.net
+  - lfodown01-lanner-lion.cloudsink.net
+  - lfoup01-lanner-lion.cloudsink.net
+  - assets.falcon.eu-1.crowdstrike.com
+  - assets-public.falcon.eu-1.crowdstrike.com
+  - api.eu-1.crowdstrike.com
+  - firehose.eu-1.crowdstrike.com # End CrowdStrike
+fw_rule_name: app_egress_test # Name of the Windows Firewall rule to create if -portblock is passed
+port_blocks: # If -portblock is enabled, will add Windows Firewall rules (if enabled) to block all communication on these ports
+  - 443 # Most EDR Agents communicate on 443
+  - 80 # Some things (unfortunately) still use this
+  - 4118 # TrendMicro [https://help.deepsecurity.trendmicro.com/10/0/Manage-Components/ports.html]
+  - 4122 # TrendMicro [https://help.deepsecurity.trendmicro.com/10/0/Manage-Components/ports.html]
+  - 514 # Commonly used for SIEM/SYSLOG
+  - 6514 # Commonly used for SIEM/SYSLOG
+  - 5985 # Windows Event Forwarding Server default port
+  - 9997 # Splunk Universal Forwarder default Data port
+  - 5044 # Elastic Agent -> LogStash default port
+  - 9200 # Elastic Agent -> ElasticSearch default port
+  - 8081 # Trellix [https://docs.trellix.com/bundle/trellix-agent-5.7.x-installation-guide/page/GUID-D972BD9A-CC34-4D5F-9CC6-0DCDE3CCA92E.html
+  - 8082 # Trellix [https://docs.trellix.com/bundle/trellix-agent-5.7.x-installation-guide/page/GUID-D972BD9A-CC34-4D5F-9CC6-0DCDE3CCA92E.html
+  - 8083 # Trellix [https://docs.trellix.com/bundle/trellix-agent-5.7.x-installation-guide/page/GUID-D972BD9A-CC34-4D5F-9CC6-0DCDE3CCA92E.html
+  - 9090 # Prometheus [https://prometheus.io/docs/prometheus/latest/installation/#volumes-bind-mount
+  - 41002 # CarbonBlack default (https://techdocs.broadcom.com/us/en/carbon-black/edr/carbon-black-edr/7-8-1/scm-guide-edr/GUID-3117FB54-5D0F-46C1-8372-BF3784D27CFF-en.html)
 file_name_skips: # No matter what, will skip files containing these strings in the name - uses regex so be cautious of special characters
   - readme
   - bootmgr
@@ -47,7 +103,7 @@ process_kill_names: # If -kill flag, will attempt to stop these processes (if ru
   - "winword.exe"
   - "wordpad.exe"
   - "xfssvccon.exe"
-  - "TeamViewer.exe"
+  - "teamviewer.exe"
   - "agntsvc.exe"
   - "dbsnmp.exe"
   - "dbeng50.exe"
@@ -268,6 +324,7 @@ groups: # When using a named group, will randomly select an extension and note n
     notes:
       - readme.txt
       - instructions_read_me.txt
+    note_behavior: immediate
     references:
       - https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-blackbasta
       - https://www.group-ib.com/resources/ransomware-notes/
@@ -308,6 +365,7 @@ groups: # When using a named group, will randomly select an extension and note n
     notes:
       - How To Restore Your Files.txt
       - README_%R%R%R%R%R.txt
+    note_behavior: immediate
     references:
       - https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-ransomhub
       - https://www.cisa.gov/sites/default/files/2024-09/aa24-242a-stopransomware-ransomhub-ransomware_1.pdf
@@ -363,6 +421,7 @@ groups: # When using a named group, will randomly select an extension and note n
     asym: rsa
     notes:
       - ReadMe.txt
+    note_behavior: immediate
     references:
       - https://www.trendmicro.com/vinfo/us/security/news/ransomware-spotlight/ransomware-spotlight-play
       - https://www.fortinet.com/blog/threat-research/ransomware-roundup-play-ransomware
@@ -381,6 +440,7 @@ groups: # When using a named group, will randomly select an extension and note n
     asym: rsa
     notes:
       - README.txt
+    note_behavior: immediate
     references:
       - https://www.cybereason.com/blog/royal-ransomware-analysis
     note: |
