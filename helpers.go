@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	r "crypto/rand"
 	"fmt"
 	"gopkg.in/yaml.v3"
@@ -8,6 +9,8 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +23,7 @@ func printFormattedMessage(msg string, level LogLevel) {
 }
 
 // generateDecryptInstructions - generates 'decryption_command.txt' when performing an encryption directive to assist in reversing the operation
-func generateDecryptInstructions(targetDir string, privateKeyData AsymKeyHandler, cipher string, recurse bool) {
+func generateDecryptInstructions(targetDir string, privateKeyData AsymKeyHandler, cipher string, recurse bool, note string) {
 	decryptionCommand := ""
 	keyFile := ""
 	if privateKeyData.System == "ecc" {
@@ -38,9 +41,9 @@ func generateDecryptInstructions(targetDir string, privateKeyData AsymKeyHandler
 	}
 
 	if privateKeyData.System == "ecc" {
-		decryptionCommand = fmt.Sprintf("impact -directory \"%s\" -skipconfirm -ecc_private \"%s\" -cipher %s -decrypt", targetDir, keyFile, cipher)
+		decryptionCommand = fmt.Sprintf("impact -directory \"%s\" -skipconfirm -ecc_private \"%s\" -cipher %s -decrypt -force_note_name %s", targetDir, keyFile, cipher, note)
 	} else if privateKeyData.System == "rsa" {
-		decryptionCommand = fmt.Sprintf("impact -directory \"%s\" -skipconfirm -rsa_private \"%s\" -cipher %s -decrypt", targetDir, keyFile, cipher)
+		decryptionCommand = fmt.Sprintf("impact -directory \"%s\" -skipconfirm -rsa_private \"%s\" -cipher %s -decrypt -force_note_name %s", targetDir, keyFile, cipher, note)
 	}
 	if recurse {
 		decryptionCommand += " -recursive"
@@ -80,11 +83,13 @@ func ReadConfig() (Config, error) {
 }
 
 // doesOSEntryExist - basic wrapper
-func doesOSEntryExist(dir string) error {
-	if _, err := os.Stat(dir); err != nil {
-		return err
+func doesOSEntryExist(dir string) bool {
+	_, err := os.Stat(dir)
+	if err != nil {
+		// Makes some assumptions but this is the simplest approach
+		return false
 	}
-	return nil
+	return true
 }
 
 // makeDirectory - basic wrapper
