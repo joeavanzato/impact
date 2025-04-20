@@ -363,7 +363,6 @@ func shouldProcessDirectory(d string, config *Config) bool {
 
 func encryptFile(file File, method string, extension string, extensionMethod string, asymHandler AsymKeyHandler, cipher string, encryptThreshold int64, encryptPercentage int) {
 	printFormattedMessage(fmt.Sprintf("Encrypting: "+file.Path), INFO)
-
 	symHandler := SymHandler{
 		System: cipher,
 	}
@@ -474,6 +473,15 @@ func encryptFile(file File, method string, extension string, extensionMethod str
 	embeddedSizeByte := make([]byte, 8)
 	binary.LittleEndian.PutUint64(embeddedSizeByte, uint64(int64(len(cipherEmbeddedData))))
 
+	// Encrypted File Structure
+	// 0->X Encrypted File
+	// X -> X+len(cipherembeddeddata)  EDS
+	// X+len(cipherembeddeddata) -> X+len(cipherembeddeddata)+8 size of EDS
+	// X+len(cipherembeddeddata)+8 -> X+len(cipherembeddeddata)+8+8 encryption signature
+	// Last 8 bytes of file is Signature
+	// 8 bytes before that is size of EDS
+	// Immediately prior to size storage is the actual EDS
+	// Then we have the encrypted data
 	outFile.Write(cipherEmbeddedData)
 	outFile.Write(embeddedSizeByte)
 	outFile.Write(encryptionSignature)
