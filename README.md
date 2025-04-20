@@ -1,6 +1,10 @@
-# impact
+<p align="center">
+    <img src="images/logo.png" alt="logo image" height="250">
+</p>
+<h1 align="center">Adversary Ransomware Simulation</h1>
 
-### This tool is dangerous - misuse can lead to irreversible consequences for your data and systems.  Use responsibly.
+<h2 align="center"> This tool is dangerous - misuse can lead to irreversible consequences for your data and systems.  
+Use responsibly. </h2>
 
 ### impact is designed to help blue-teams test their defenses against ransomware through a controlled mechanism as well as provide a means to reverse any impact with built-in decryption capabilities.
 
