@@ -19,10 +19,7 @@ import (
 // TODO - Desktop Background Optional Capability
 // TODO - Icon Association Optional Capability
 // Category - Defense Evasion
-// TODO - VSS Removals
 // Category - Remote Execution
-// TODO - Remote Deployment Target Spread via SMB
-// TODO - Remote Execution via WMI
 // TODO - Remote Execution via schtask
 // TODO - Remote Execution via service control manager
 // TODO - Remote Execution via mcc COM
@@ -83,6 +80,7 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 	targetNetworkShares := flag.Bool("targetNetworkShares", false, "If enabled, impact will target network shares if target_dir == \"*\"")
 	targetADComputers := flag.Bool("targetad", false, "If enabled, impact will target all enabled computers in the current domain - requires admin privileges")
 	remoteFileCopyPath := flag.String("remotecopypath", "", "If specified, impact will be copied to this location on the remote device - if blank, will use the default ADMIN$ share")
+	skipShares := flag.Bool("skipshares", false, "If enabled, impact will not target network shares")
 
 	// Asymmetric Keys
 	generate_keys := flag.Bool("generate_keys", false, "If specified, will generate new RSA/ECC keys to use for encryption/decryption purposes")
@@ -225,6 +223,10 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 
 	if *create && (len(targetSlice) != 0 || *targetsFile != "" || *targetADComputers) {
 		return nil, errors.New("Cannot use -create and -target_file or -targets together")
+	}
+
+	if *skipShares {
+		*targetNetworkShares = false
 	}
 
 	arguments := map[string]any{
