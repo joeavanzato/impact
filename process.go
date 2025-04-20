@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 //https://github.com/capnspacehook/taskmaster
@@ -16,9 +17,16 @@ import (
 const processEntrySize = 568
 
 func KillTargetProcesses(processNames []string, isRemoteHost bool, hostname string) error {
-	procs, err := winproc.List(
-		//winproc.Include(winproc.ContainsName("winlogon")),
-		winproc.IncludeAncestors)
+
+	// We could of course use things like WMI to kill remote processes
+	// But instead, we will give the user the option to actually deploy the binary remotely via SMB+WMI
+	if isRemoteHost {
+		return fmt.Errorf("Process Kill only works when running locally")
+	}
+
+	procs, err := winproc.List()
+	//winproc.Include(winproc.ContainsName("winlogon")),
+	//winproc.IncludeAncestors)
 	if err != nil {
 		fmt.Printf("Failed to retrieve process list: %v\n", err)
 		return err
@@ -26,7 +34,7 @@ func KillTargetProcesses(processNames []string, isRemoteHost bool, hostname stri
 	pidsKilled := make([]int, 0)
 
 	for _, proc := range procs {
-		if slices.Contains(processNames, proc.Name) {
+		if slices.Contains(processNames, strings.ToLower(proc.Name)) {
 			pid, err := strconv.Atoi(proc.ID.String())
 			if err != nil {
 				continue
