@@ -70,16 +70,22 @@ In general, the logic flow is as below:
 * RansomHub
 * Play
 * Royal
+* Medusa
+* LockBit
 
+The above groups have an entry in the configuration representing their commonly observed extensions, note names, note contents, encryption mechanism, extension method and note behavior.  These can be easily modified/customized based on desired properties in config.yaml - just follow instructions below to rebuild when changes are made.
+```shell
+go run github.com/abakum/embed-encrypt
+go build .
+```
 
 ### Command Examples
 ```shell
-impact -directory \\localhost\C$\test -group blackbasta -recursive -create -create_files 10000 -create_size 5000
-# Create 10,000 files with a target size of 5,000 Megabytes in the target directory then encrypt those files recursively
-# When using -create, impact will ONLY target files created during this execution and nothing else
-###
+impact -directory \\localhost\C$\test -create -create_files 10000 -create_size 5000
+# Create 10,000 files with an overall target data size of 5,000 Megabytes in the target directory
+
 impact -directory \\localhost\C$\test -group ransomhub -recursive
-# Encrypt the target directory recursively using notes, note-names, file extensions and symmetric encryption synonymous with the RansomHub group
+# Encrypt the target directory recursively using notes, note-names, file extensions and encryption algorithms associated with the RansomHub group
 
 impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20
 # Same as above, but force the use of a specific cipher (defaults to group configuration)
@@ -176,6 +182,17 @@ impact -directory * -group play -recursive -workers 50 -ep 40 -killprocs -vss -b
   -workers int
         How many goroutines to use for encryption - think of this as a limiter for number of concurrent files that can be encrypted/decrypted (default 25)
 ```
+
+### Building your own binary
+If you want to modify any part of impact or the configuration file, you will need to build your own binary. 
+
+Before building in Go, be sure to run the following command to create the encrypted configuration file:
+
+```go run github.com/abakum/embed-encrypt```
+
+Then you can freely run 'go build .' to create the standalone executable.
+
+I'm doing some research on achieving this in a more dynamic way so that the encrypted embedded configuration can be altered dynamically without having to fully rebuild.
 
 ### Credits/Acknowledgements
 * github.com/mxk/go-vss
