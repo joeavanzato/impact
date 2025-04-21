@@ -645,7 +645,7 @@ groups: # When using a named group, will randomly select an extension and note n
     cipher: xchacha20
     asym: rsa
     notes:
-      - %R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R.README.txt
+      - "%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R.README.txt"
     note_behavior: immediate
     references:
       - https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-165a
