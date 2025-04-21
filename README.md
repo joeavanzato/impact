@@ -53,17 +53,20 @@ Thus, the implementation remains the same between groups in this tool and it is 
 
 Every time that an encryption command is executed, a corresponding decryption command will be created in local file 'decryption_command.txt' - this command will provide instructions on how to reverse the encryption by specifying the appropriate reversed command-line arguments.
 
-In general, the logic flow is as below:
-1. From target directory, files are scanned to determine whether they shoudl be encrypted
-   2. Based on specified inclusions/exclusions in embedded config file
-3. For each file, first we generate a random symmetric key for AES/XChaCha20
-4. If file size is less than our threshold, we encrypt the entire file
-   5. Can be configured via -threshold parameter (in bytes)
-6. If file is larger than the threshold, we retrieve our percent-based encryption parameter
-   7. Calculate chunks of original file to encrypt and attempt to get as close to the desired percent as possible
-8. Once complete, we generate a data structure to append to the end of the file and encrypt this structure with our embedded public RSA/ECC key
-   9. Following this, we also embed two more data structures representing the length of our encrypted metadata and an encryption signature
-10. After completing all file writes, we then either append our extension or mutate the existing extension depending on methodology of the group
+In general, the encryption flow is as follows:
+1. From target directory, files and directories are checked to determine whether they should be encrypted based on specified inclusions/exclusions in embedded config file
+   * This can be based on extension, file name or directory name
+   * 0 byte files are always excluded
+2. For each file, first we generate a random symmetric key for AES/XChaCha20
+3. If file size is less than our minimum threshold, we encrypt the entire file
+4. If file is larger than the threshold, we encrypt a percentage of the file in chunks
+5. Once complete, we generate a data structure to append to the end of the file and encrypt this structure with our embedded public RSA/ECC key 
+   * This data structure contains the following:
+   * Length + Content of Symmetric Key
+   * Length + Content of Symmetric Nonce
+   * Length + Content of Original Extension (in case we are mutating)
+6. Following this, we also embed two more data structures representing the length of our encrypted metadata struct and an encryption signature
+7. Impact then either appends our ransomware extension or mutates the existing extension depending on the specified method
 
 ### Groups Currently Implemented
 * BlackBasta
