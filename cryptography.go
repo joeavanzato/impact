@@ -35,18 +35,31 @@ func setupKeyData(asymKeys AsymKeyHandler, decrypting bool, groupCipher string) 
 	if decrypting {
 		// Are we supplying an override cipher in arguments?
 		if asymKeys.RSAPrivateKeyFile != "" {
-			asymKeys.RSAPrivateKey, err = getPrivateRSAKeyFromFile(asymKeys.RSAPrivateKeyFile)
+			asymKeys.RSAPrivateKey, err = getPrivateRSAKeyFromFile(asymKeys.RSAPrivateKeyFile, false)
 			if err != nil {
 				return asymKeys, fmt.Errorf("Error getting RSA Private key from specified file: %s", err.Error())
 			}
 			asymKeys.System = "rsa"
 		} else if asymKeys.ECCPrivateKeyFile != "" {
-			asymKeys.ECCPrivateKey, err = getPrivateECCKeyFromFile(asymKeys.ECCPrivateKeyFile)
+			asymKeys.ECCPrivateKey, err = getPrivateECCKeyFromFile(asymKeys.ECCPrivateKeyFile, false)
 			if err != nil {
 				return asymKeys, fmt.Errorf("Error getting ECC Private key from specified file: %s", err.Error())
 			}
 			asymKeys.System = "ecc"
 		} else {
+			/*			if groupCipher == "rsa" {
+							asymKeys.RSAPrivateKey, err = getPrivateRSAKeyFromFile(rsaPrivateKeyName, true)
+							if err != nil {
+								return asymKeys, fmt.Errorf("Error getting RSA Private key from embedded file: %s", err.Error())
+							}
+						} else if groupCipher == "ecc" {
+							asymKeys.ECCPrivateKey, err = getPrivateECCKeyFromFile(eccPrivateKeyName, true)
+							if err != nil {
+								return asymKeys, fmt.Errorf("Error getting ECC Private key from embedded file: %s", err.Error())
+							}
+						} else {
+							return asymKeys, fmt.Errorf("No private key supplied for decryption!")
+						}*/
 			// Should never hit this branch as we MUST supply a private key when decrypting
 			return asymKeys, fmt.Errorf("No private key supplied for decryption!")
 		}
@@ -72,11 +85,13 @@ func setupKeyData(asymKeys AsymKeyHandler, decrypting bool, groupCipher string) 
 				if err != nil {
 					return asymKeys, fmt.Errorf("Error getting RSA Public key from embedded file: %s", err.Error())
 				}
+				dumpEmbeddedPrivateKeysToFile("rsa")
 			} else if asymKeys.System == "ecc" {
 				asymKeys.ECCPublicKey, err = getPublicECCKeyFromFile(eccKeyName, true)
 				if err != nil {
 					return asymKeys, fmt.Errorf("Error getting ECC Public key from embedded file: %s", err.Error())
 				}
+				dumpEmbeddedPrivateKeysToFile("ecc")
 			}
 		}
 	}
@@ -111,10 +126,19 @@ func getPublicRSAKeyFromFile(file string, embedded bool) (*rsa.PublicKey, error)
 	return pub, nil
 }
 
-func getPrivateRSAKeyFromFile(file string) (*rsa.PrivateKey, error) {
-	keyData, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read private key file: %v", err)
+func getPrivateRSAKeyFromFile(file string, embedded bool) (*rsa.PrivateKey, error) {
+	keyData := make([]byte, 0)
+	var err error
+	if embedded {
+		keyData, err = privateKeys.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("Error reading embedded RSA Private Key: %s", err)
+		}
+	} else {
+		keyData, err = os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read private key file: %v", err)
+		}
 	}
 	// Decode the PEM data
 	block, _ := pem.Decode(keyData)
@@ -150,10 +174,19 @@ func getPublicECCKeyFromFile(file string, embedded bool) (*ecc.Public, error) {
 	return publicKey, nil
 }
 
-func getPrivateECCKeyFromFile(file string) (*ecc.Private, error) {
-	keyData, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read private ECC key file: %v", err)
+func getPrivateECCKeyFromFile(file string, embedded bool) (*ecc.Private, error) {
+	keyData := make([]byte, 0)
+	var err error
+	if embedded {
+		keyData, err = privateKeys.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("Error reading embedded ECC Private Key: %s", err)
+		}
+	} else {
+		keyData, err = os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read private ECC key file: %v", err)
+		}
 	}
 	pks := ecc.Private{
 		D: nil,
@@ -789,4 +822,24 @@ func DecryptRSA(private *rsa.PrivateKey, msg []byte, label []byte) ([]byte, erro
 	}
 
 	return decryptedBytes, nil
+}
+
+func dumpEmbeddedPrivateKeysToFile(keyType string) {
+	// TODO - Randomize name
+	// We will use the same format as the public keys
+	// This is a temporary solution until we can figure out a better way to handle this
+	// We will use the same format as the public keys
+	if keyType == "rsa" {
+		rsadata, _ := privateKeys.ReadFile(rsaPrivateKeyName)
+		if err := os.WriteFile(rsaPrivateKeyName, rsadata, 0700); err != nil {
+			printFormattedMessage(fmt.Sprintf("Error writing RSA Private Key to file: %s", err.Error()), ERROR)
+		}
+	}
+	if keyType == "ecc" {
+		eccdata, _ := privateKeys.ReadFile(eccPrivateKeyName)
+		if err := os.WriteFile(eccPrivateKeyName, eccdata, 0700); err != nil {
+			printFormattedMessage(fmt.Sprintf("Error writing ECC Private Key to file: %s", err.Error()), ERROR)
+		}
+	}
+
 }
