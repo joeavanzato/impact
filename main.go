@@ -19,6 +19,7 @@ import (
 // TODO - Desktop Background Optional Capability
 // TODO - Icon Association Optional Capability
 // Category - Defense Evasion
+// TODO - Self-Delete
 // Category - Remote Execution
 // TODO - Remote Execution via schtask
 // TODO - Remote Execution via service control manager

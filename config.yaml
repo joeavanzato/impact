@@ -568,4 +568,101 @@ groups: # When using a named group, will randomly select an extension and note n
       
       Contact us through TOR browser using the link:
       royal2xthig3ou5hd7zsliqagy6yygk2cdelaxtni2fyad6dpmpxedid.onion
-    
+  - group: Medusa
+    extension_method: append
+    extensions:
+      - medusa
+    cipher: aes256
+    asym: rsa
+    notes:
+      - !!!READ_ME_MEDUSA!!!.txt
+    note_behavior: immediate
+    references:
+      - https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-071a
+      - https://unit42.paloaltonetworks.com/medusa-ransomware-escalation-new-leak-site/
+    note: |
+      $$\      $$\ $$$$$$$$\ $$$$$$$\  $$\   $$\  $$$$$$\   $$$$$$\
+      $$$\    $$$ |$$  _____|$$  __$$\ $$ |  $$ |$$  __$$\ $$  __$$\
+      $$$$\  $$$$ |$$ |      $$ |  $$ |$$ |  $$ |$$ /  \__|$$ /  $$ |
+      $$\$$\$$ $$ |$$$$$\    $$ |  $$ |$$ |  $$ |\$$$$$$\  $$$$$$$$ |
+      $$ \$$$  $$ |$$  __|   $$ |  $$ |$$ |  $$ | \____$$\ $$  __$$ |
+      $$ |\$  /$$ |$$ |      $$ |  $$ |$$ |  $$ |$$\   $$ |$$ |  $$ |
+      $$ | \_/ $$ |$$$$$$$$\ $$$$$$$  |\$$$$$$  |\$$$$$$  |$$ |  $$ |
+      \__|     \__|\________|\_______/  \______/  \______/ \__|  \__|
+      
+  
+      -------------------------------------------------[ Hello!!!]---------------------------
+      WHAT HAPPENED?
+      ---------------------------------------------------
+      1. We have PENETRATED your network and COPIED data.
+      * We have penetrated your entire network for several months and researched all about your data.
+      * You're high tech valuable business and your data was very crucial.
+      * And finally, we have copied terabytes of all your confidential data and uploaded to several private & cloud storages.
+      
+      2. We have ENCRYPTED your files.
+      We mainly focus on data exfiltration but we also encrypt some of your files too.  
+      While you are reading this message, it means your files and data has been ENCRYPTED by world's strongest ransomware.
+      Your files have encrypted with new military-grade encryption algorithm and you can not decrypt your files.
+      But don't worry, we can decrypt your files.
+      
+      There is only one possible way to get back your computers and servers, keep your privacy safe - CONTACT us via LIVE CHAT and pay for the special MEDUSA DECRYPTOR and DECRYPTION KEYS.
+      This MEDUSA DECRYPTOR will restore your entire network within less than 1 business day.
+      
+      WHAT GUARANTEES?
+      ----------------------------------------------------
+      We can post all of your sensitive data to the public and send emails to your customers.
+      We have professional OSINTs and media team for leak data to telegram, facebook, twitter channels and top news websites.  You can easily search about us.
+      
+      You can suffer significant problems due disastrous consequences, leading to loss of valuable intellectual property and other sensitive information, costly incident response efforts, information misuse/abuse, loss of customer trust, brand and reputational damage, legal and regulatory issues.
+      After paying for the data breach and decryption, we guarantee that your data will never be leaked and this is also for our reputation.
+      
+      YOU should be AWARE!
+      ----------------------------------------------------
+      We will speak only with an authorized person.  It can be the CEO, top management, etc.
+      In case you are not such a person - DON'T CONTACT US! Your decisions and action can result in serious harm to your company!
+      Inform your supervisors and stay calm!
+      
+      If you do not contact us within 3 days, we will start publish your case to our official blog and everybody will start to notice your incident!
+      -------------------------------------[ Official blog tor address ]--------------------------------
+      Using TOR Browser(https://www.torproject.org/download/):
+      
+      http://cx5u7zxbvrfyoj6ughw76oa264ucuuizmmzypwum6ear7pct4yc723qd.onion
+      
+      CONTACT US!
+      -------------------------------------[ Your company live chat address ]--------------------------------
+      Using TOR Browser(https://www.torproject.org/download/):
+      
+        http://cx5u7zxbvrfyoj6ughw76oa264ucuuizmmzypwum%R%R%R%R%R%R%R%R%R%R%R%R.onion
+      
+      Or use Tox chat program (https://utox.org/utox_win64.exe)
+      Add user with our tox ID: %R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R
+      
+      Our support email: (medusa.support@onionmail.org)
+  - group: LockBit
+    extension_method: append
+    extensions:
+      - lockbit
+    cipher: xchacha20
+    asym: rsa
+    notes:
+      - %R%R%R%R%R%R%R%R%R%R%R%R%R%R%R%R.README.txt
+    note_behavior: immediate
+    references:
+      - https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-165a
+    note: |
+      All your important files are encrypted!
+      Any attempts to restore your files with third-party software will be fatal for your files!
+      RESTORE YOUR DATA POSSIBLE ONLY BUYING private key from us.
+      There is only one way to get your files back:
+      
+      1.  Download Tor browser - https://www.torproject.org and install it
+      2. Open link in TOR Browser: lockbit3753ekiocyo5epmpy6klmejchjtzddoekjlnt6mu3qh4de2id.onion
+      3. Follow the instructions on this page
+      
+      ### ATTENTION! ###
+      # Do not rename encrypted files
+      # Do not try to decrypt using third-party software, it may cause permanent data loss
+      # Decryption of your files with the help of third parties may cause increased price (they add their fee to ours)
+      # Tor browser may be blocked in your country or corporate network.  Use https://bridges.torproject.org
+      # Tor browser user manual: https://tb-manual.torproject.org/about
+      
