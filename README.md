@@ -6,13 +6,15 @@
 <h2 align="center"> This tool is dangerous - misuse can lead to irreversible consequences for your data and systems.  
 Use responsibly. </h2>
 
-### impact is designed to help blue-teams test their defenses against ransomware through a controlled mechanism as well as provide a means to reverse any impact with built-in decryption capabilities.
+### impact is designed to help blue-teams test ransomware defenses in a controlled way as well as provide a means to reverse any impact with built-in decryption capabilities.
 
 impact is an adversary ransomware simulator designed to replicate certain functionality often observed in groups such as BlackBasta, RansomHub, etc.
 
 If you want to truly test your ransomware detection and prevention capabilities, impact will give you the capability to do so using real-world observations.
 
-Features:
+impact provides the capability to simulate many common TTPs used by encryptors such as intermittent encryption, Defender tampering, blocking network traffic, killing configured processes/services, remote deployment and many more.
+
+Main Features:
 * Multi-threaded data encryption with file/directory exclusions/inclusions based on real-world observations
 * Intermittent percent-based encryption using AES or XChaCha20 with configurable percentage
 * Unique symmetric keys per file to avoid known-plaintext analysis attacks
@@ -31,8 +33,8 @@ Features:
 * Can target specific directories or enumerate all local/network drives to target
 * Can read remote target list via file/cmdline/AD for execution
 
-Just a note that this does not perfectly emulate all the TTPs/Behaviors of any given group - but it is good enough as a 
-simulation in my experience.
+Just a note that impact does not perfectly emulate all the TTPs/Behaviors of any given group - but it is good enough as a 
+simulation in my experience dealing with these types of attacks.
 
 Most encryption schemes for ransomware involve the generation of a unique symmetric key on a per-file basis - after 
 the file is encrypted, an embedded public key is then used to encrypt the symmetric key (along with other data 
@@ -94,8 +96,12 @@ impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchach
 impact -directory \\localhost\C$\test -group ransomhub -recursive -cipher xchacha20 -rsa_public "rsa_public.key" -workers 100 -ep 75 -threshold 2048
 # Same as above, but increase the size threshold for automatically encrypting 100% of a file (default 1048 bytes)
 
+impact -directory * -group play -killprocs -killservices -vss -blockports -defender
+# Enumerates all local/network drives for encryption from top-level down along with killing configured processes/services, removing shadow copies, tampering with Defender and blocking commonly-used EDR ports
+
 impact -directory * -group play -recursive -workers 50 -ep 40 -killprocs -vss -blockports -killservices -defender -targetad -exec_method wmi
 # Read enabled computers from AD and execute impact remotely with provided parameters via WMI - will also kill configured processes and services, destroy VSS copies and block outbound ports via Windows Firewall
+# impact will be copied to remote targets via SMB and executed with the specified exec_method
 ```
 
 
