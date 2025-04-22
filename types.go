@@ -44,6 +44,7 @@ type LogLevel string
 const (
 	INFO  LogLevel = "INFO"
 	ERROR LogLevel = "ERROR"
+	DEBUG LogLevel = "DEBUG"
 )
 
 type File struct {
