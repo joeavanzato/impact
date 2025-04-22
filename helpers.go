@@ -55,6 +55,7 @@ func generateDecryptInstructions(targetDir string, privateKeyData AsymKeyHandler
 		return
 	}
 	f.WriteString(decryptionCommand)
+	printFormattedMessage(fmt.Sprintf("Decryption Command: %s", decryptionCommand), INFO)
 }
 
 // removeLastExtension - Removes the last extension from a filepath and returns the filepath without the extension
