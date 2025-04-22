@@ -113,6 +113,15 @@ impact -directory * -group play -recursive -workers 50 -ep 40 -killprocs -vss -b
 # impact will be copied to remote targets via SMB and executed with the specified exec_method
 ```
 
+### Example Usage
+
+|                                          ![mock_data_creation.png](images\mock_data_creation.png)                                           | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------:| 
+|                                   *Creating 6 GB of mock data across 12,500 files in specified directory*                                   |
+|                                           ![encrypt_mock_data.png](images\encrypt_mock_data.png)                                            | 
+|                                  :-----------------------------------------------------------------------:                                  | 
+| *Encrypt the data set while simulating LockBit - this also generates a 'decryption_command.txt' file describing how to reverse the process* |
+
 
 ### Arguments
 ```
